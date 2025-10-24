@@ -26,6 +26,7 @@ RUN set -euxo pipefail; \
     arj \
     ash \
     aspell \
+    aspell-en \
     basez \
     bash \
     bat \
