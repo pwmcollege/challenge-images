@@ -74,6 +74,7 @@ RUN set -euxo pipefail; \
     gzip \
     highlight \
     hping3 \
+    iamerican \
     iproute2 \
     ispell \
     jq \
