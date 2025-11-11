@@ -11,6 +11,7 @@ on:
         description: Image to build and push
         options:
           - suid
+          - cve-2023-22809
           - cve-2025-32463
 
 jobs:
@@ -20,6 +21,7 @@ jobs:
       matrix:
         image:
           - suid
+          - cve-2023-22809
           - cve-2025-32463
 
     steps:
