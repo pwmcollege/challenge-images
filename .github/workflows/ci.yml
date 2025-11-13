@@ -10,9 +10,10 @@ on:
         type: choice
         description: Image to build and push
         options:
-          - suid
+          - cve-2021-3156
           - cve-2023-22809
           - cve-2025-32463
+          - suid
 
 jobs:
   publish:
@@ -20,9 +21,10 @@ jobs:
     strategy:
       matrix:
         image:
-          - suid
+          - cve-2021-3156
           - cve-2023-22809
           - cve-2025-32463
+          - suid
 
     steps:
       - name: Checkout repository
