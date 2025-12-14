@@ -32,7 +32,6 @@ RUN set -euxo pipefail; \
     bat \
     bc \
     binutils \
-    bsdextrautils \
     busybox \
     bzip2 \
     cabal-install \
@@ -86,7 +85,6 @@ RUN set -euxo pipefail; \
     links \
     linux-tools-generic \
     logsave \
-    lua5.4 \
     make \
     man-db \
     mawk \
