@@ -26,6 +26,7 @@ jobs:
           - cve-2023-22809
           - cve-2025-32463
           - cve-2025-55182
+          - suid
 
     steps:
       - name: Checkout repository
