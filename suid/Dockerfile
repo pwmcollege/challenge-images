@@ -114,6 +114,7 @@ RUN set -euxo pipefail; \
     php-cli \
     procps \
     python-is-python3 \
+    python3-pip \
     rc \
     restic \
     rlwrap \
@@ -150,6 +151,8 @@ RUN set -euxo pipefail; \
     rm -f /usr/sbin/policy-rc.d; \
     apt-get clean; \
     rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --break-system-packages pykickstart
 
 RUN ln -s /etc/bash.bashrc /etc/bashrc && \
     if id ubuntu; then userdel -f -r ubuntu; fi && \
