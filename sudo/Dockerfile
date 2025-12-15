@@ -257,8 +257,11 @@ RUN set -euxo pipefail; \
 
 RUN curl -sS https://bootstrap.pypa.io/pip/2.7/get-pip.py -o /tmp/get-pip.py; \
     python2 /tmp/get-pip.py; \
-    rm /tmp/get-pip.py;
-
+    rm /tmp/get-pip.py; \
+    easyi=/usr/lib/python2.7/dist-packages/easy_install.py; \
+    sed -i '1i #!/usr/bin/python2' "${easyi}"; \
+    chmod +x "${easyi}"; \
+    ln -sf "$easyi" /usr/bin/easy_install
 
 RUN cd /tmp; \
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"; \
