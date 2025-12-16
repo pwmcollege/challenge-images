@@ -30,7 +30,6 @@ RUN set -euxo pipefail; \
     basez \
     bash \
     bat \
-    bc \
     binutils \
     bsdextrautils \
     busybox \

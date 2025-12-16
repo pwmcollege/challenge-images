@@ -37,7 +37,6 @@ RUN set -euxo pipefail; \
     basez \
     bash \
     bat \
-    bc \
     binutils \
     dc \
     bpftrace \
@@ -118,8 +117,11 @@ RUN set -euxo pipefail; \
     less \
     libc-bin \
     libcap2-bin \
+    libdate-manip-perl \
     libglib2.0-dev-bin \
     libimage-exiftool-perl \
+    libmonitoring-plugin-perl \
+    libnet-cups-perl \
     libvirt-clients \
     libwww-perl \
     lftp \
