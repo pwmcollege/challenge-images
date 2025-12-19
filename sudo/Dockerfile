@@ -272,12 +272,14 @@ RUN cd /tmp; \
 
 RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg && apt-get update -y && apt-get install google-cloud-cli -y
 
-RUN curl -fsSL https://install.julialang.org | bash -s -- -y && \
-    ln -sf /root/.juliaup/bin/julia /usr/local/bin/julia && \
-    ln -sf /root/.juliaup/bin/juliaup /usr/local/bin/juliaup
-
 RUN curl -fSL "https://chefdownload-community.chef.io/stable/chef/download?p=ubuntu&pv=22.04&m=x86_64&v=14.15.6" -o /tmp/chef.deb; \
     dpkg -i /tmp/chef.deb
+
+RUN curl -fsSL https://install.julialang.org | bash -s -- -y && \
+    ln -sf /root/.juliaup/bin/julia /usr/local/bin/julia && \
+    ln -sf /root/.juliaup/bin/juliaup /usr/local/bin/juliaup && \
+    chmod 755 /root && \
+    chmod 644 /root/.julia/juliaup/*.json
 
 RUN cd /tmp; \
     curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"; \
