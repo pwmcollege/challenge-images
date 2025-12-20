@@ -503,6 +503,8 @@ RUN pip3 install pykickstart
 
 RUN ln -s /lib64/ld-linux-x86-64.so.2 /usr/bin/ld.so
 
+RUN gem install fpm
+
 ENV PATH="/usr/lib/nagios/plugins:/usr/games:${PATH}"
 
 RUN ln -s /etc/bash.bashrc /etc/bashrc && \
