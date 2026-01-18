@@ -468,6 +468,7 @@ RUN passwd -d root && \
     vm exec snap install snapd && \
     vm exec snap install core && \
     vm stop && \
+    usermod -p '*' root && \
     rm -rf /tmp/*
 
 ENV PATH="/usr/lib/nagios/plugins:/usr/games:${PATH}"
