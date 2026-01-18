@@ -176,6 +176,8 @@ SHELL ["/bin/bash", "-ceov", "pipefail"]
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LC_CTYPE=C.UTF-8
 
+ARG NODE_VER=24
+
 RUN <<EOF
     rm -f /etc/apt/apt.conf.d/docker-clean
     echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
@@ -319,8 +321,6 @@ RUN apt-get update; \
     netcat-openbsd \
     nftables \
     nmap \
-    nodejs \
-    npm \
     ntpsec-ntpdate \
     octave \
     openjdk-11-jdk-headless \
@@ -423,6 +423,10 @@ RUN apt-get update; \
     apt-get clean; \
     rm -rf /var/lib/apt/lists/*
 
+RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VER}.x | bash - && \
+    apt-get update && apt-get install --no-install-recommends -yqq nodejs && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
 RUN curl -sS https://bootstrap.pypa.io/pip/2.7/get-pip.py -o /tmp/get-pip.py; \
     python2 /tmp/get-pip.py; \
     rm /tmp/get-pip.py; \
@@ -460,6 +464,10 @@ RUN ln -s /lib64/ld-linux-x86-64.so.2 /usr/bin/ld.so
 
 RUN gem install fpm
 
+COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
+
+ENV PATH="/usr/lib/nagios/plugins:/usr/games:${PATH}"
+
 RUN passwd -d root && \
     vm start && \
     until vm exec echo ok | grep -qx ok; do sleep 1; done && \
@@ -471,7 +479,6 @@ RUN passwd -d root && \
     usermod -p '*' root && \
     rm -rf /tmp/*
 
-ENV PATH="/usr/lib/nagios/plugins:/usr/games:${PATH}"
 
 RUN ln -s /etc/bash.bashrc /etc/bashrc && \
     if id ubuntu; then userdel -f -r ubuntu; fi && \
