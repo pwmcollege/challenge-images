@@ -167,6 +167,8 @@ fi
 tail -f /var/log/vm.log
 EOF
 
+ADD --chown=0:0 --chmod=6755 http://github.com/pwncollege/exec-suid/releases/latest/download/exec-suid /usr/bin/exec-suid
+
 FROM dev-kernel AS runtime
 
 SHELL ["/bin/bash", "-ceov", "pipefail"]
@@ -181,9 +183,7 @@ RUN <<EOF
     apt-get clean && rm -rf /var/lib/apt/lists/*
 EOF
 
-RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d; \
-    chmod +x /usr/sbin/policy-rc.d; \
-    apt-get update; \
+RUN apt-get update; \
     apt-get install -y --no-install-recommends \
     acl \
     alpine \
@@ -429,23 +429,25 @@ RUN curl -sS https://bootstrap.pypa.io/pip/2.7/get-pip.py -o /tmp/get-pip.py; \
     easyi=/usr/lib/python2.7/dist-packages/easy_install.py; \
     sed -i '1i #!/usr/bin/python2' "${easyi}"; \
     chmod +x "${easyi}"; \
-    ln -sf "$easyi" /usr/bin/easy_install
+    ln -sf "$easyi" /usr/bin/easy_install && \
+    rm -rf /tmp/*
 
 RUN cd /tmp; \
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"; \
     unzip awscliv2.zip; \
-    ./aws/install
+    ./aws/install && \
+    rm -rf /tmp/*
 
 RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg && apt-get update -y && apt-get install google-cloud-cli -y
 
-RUN curl -fSL "https://chefdownload-community.chef.io/stable/chef/download?p=ubuntu&pv=22.04&m=x86_64&v=14.15.6" -o /tmp/chef.deb; \
-    dpkg -i /tmp/chef.deb
+RUN curl -fSL "https://packages.chef.io/files/stable/chef-workstation/24.6.1066/ubuntu/22.04/chef-workstation_24.6.1066-1_amd64.deb" -o /tmp/chef.deb; \
+    dpkg -i /tmp/chef.deb && \
+    rm -rf /tmp/*
 
-RUN curl -fsSL https://install.julialang.org | bash -s -- -y && \
-    ln -sf /root/.juliaup/bin/julia /usr/local/bin/julia && \
-    ln -sf /root/.juliaup/bin/juliaup /usr/local/bin/juliaup && \
-    chmod 755 /root && \
-    chmod 644 /root/.julia/juliaup/*.json
+RUN cd /opt && \
+    curl -fSL "https://julialang-s3.julialang.org/bin/linux/x64/1.12/julia-1.12.4-linux-x86_64.tar.gz" | tar -xzf - && \
+    mv /opt/julia-1.12.4/ /opt/julia/ && \
+    ln -s /opt/julia/bin/julia /usr/local/bin/julia
 
 RUN cd /tmp; \
     curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"; \
@@ -458,14 +460,22 @@ RUN ln -s /lib64/ld-linux-x86-64.so.2 /usr/bin/ld.so
 
 RUN gem install fpm
 
+RUN passwd -d root && \
+    vm start && \
+    until vm exec echo ok | grep -qx ok; do sleep 1; done && \
+    vm exec systemctl enable --now snapd.socket && \
+    vm exec "sh -c 'until snap wait system seed.loaded 2>/dev/null; do sleep 2; done'" && \
+    vm exec snap install snapd && \
+    vm exec snap install core && \
+    vm stop && \
+    rm -rf /tmp/*
+
 ENV PATH="/usr/lib/nagios/plugins:/usr/games:${PATH}"
 
 RUN ln -s /etc/bash.bashrc /etc/bashrc && \
     if id ubuntu; then userdel -f -r ubuntu; fi && \
     chown -R 0:0 /usr/bin /usr/local/bin && \
     find / -xdev -type f -perm -4000 -exec chmod u-s {} \;
-
-ADD --chown=0:0 --chmod=6755 http://github.com/pwncollege/exec-suid/releases/latest/download/exec-suid /usr/bin/exec-suid
 
 RUN chmod u+s /usr/bin/sudo /usr/local/bin/vm-start /usr/local/bin/vm-stop
 
