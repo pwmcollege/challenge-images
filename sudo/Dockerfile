@@ -480,10 +480,9 @@ RUN passwd -d root && \
     usermod -p '*' root && \
     rm -rf /tmp/*
 
-
 RUN ln -s /etc/bash.bashrc /etc/bashrc && \
     if id ubuntu; then userdel -f -r ubuntu; fi && \
-    chown -R 0:0 /usr/sbin /usr/bin /usr/local/bin /opt && \
+    chown -R 0:0 /usr/sbin /usr/bin /usr/local/bin /opt /snap && \
     find / -xdev -type f -perm -4000 -exec chmod u-s {} \;
 
 RUN chmod u+s /usr/bin/exec-suid /usr/bin/sudo /usr/local/bin/vm-start /usr/local/bin/vm-stop
