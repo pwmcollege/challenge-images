@@ -2,7 +2,8 @@
 
 FROM ubuntu:22.04 AS dev-kernel
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     initramfs-tools \
     kmod \
     linux-image-generic \
@@ -185,7 +186,7 @@ RUN <<EOF
     apt-get clean && rm -rf /var/lib/apt/lists/*
 EOF
 
-RUN apt-get update; \
+RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     acl \
     alpine \
@@ -482,10 +483,10 @@ RUN passwd -d root && \
 
 RUN ln -s /etc/bash.bashrc /etc/bashrc && \
     if id ubuntu; then userdel -f -r ubuntu; fi && \
-    chown -R 0:0 /usr/bin /usr/local/bin && \
+    chown -R 0:0 /usr/sbin /usr/bin /usr/local/bin /opt && \
     find / -xdev -type f -perm -4000 -exec chmod u-s {} \;
 
-RUN chmod u+s /usr/bin/sudo /usr/local/bin/vm-start /usr/local/bin/vm-stop
+RUN chmod u+s /usr/bin/exec-suid /usr/bin/sudo /usr/local/bin/vm-start /usr/local/bin/vm-stop
 
 COPY --chmod=440 <<'EOF' /etc/sudoers.d/hacker
 hacker ALL=(root) NOPASSWD: ALL

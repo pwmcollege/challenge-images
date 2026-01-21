@@ -14,10 +14,7 @@ RUN <<EOF
     apt-get clean && rm -rf /var/lib/apt/lists/*
 EOF
 
-RUN set -euxo pipefail; \
-    printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d; \
-    chmod +x /usr/sbin/policy-rc.d; \
-    apt-get update; \
+RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     acl \
     alpine \
