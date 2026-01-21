@@ -480,6 +480,8 @@ RUN passwd -d root && \
     usermod -p '*' root && \
     rm -rf /tmp/*
 
+RUN npm i -g @openai/codex
+
 RUN ln -s /etc/bash.bashrc /etc/bashrc && \
     if id ubuntu; then userdel -f -r ubuntu; fi && \
     chown -R 0:0 /usr/sbin /usr/bin /usr/local/bin /opt /snap && \
