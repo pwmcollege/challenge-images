@@ -1,5 +1,36 @@
 # syntax=docker/dockerfile:1
 
+FROM ubuntu:22.04 AS dev-telnet
+
+RUN apt-get update && \
+    apt-get install -y \
+    autoconf \
+    automake \
+    binutils \
+    bison \
+    build-essential \
+    ca-certificates \
+    coreutils \
+    diffutils \
+    git \
+    grep \
+    help2man \
+    libncurses-dev \
+    python3 \
+    sed \
+    texinfo && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN cd /tmp && \
+    git clone https://codeberg.org/inetutils/inetutils.git && \
+    cd /tmp/inetutils && \
+    git submodule update --init --recursive && \
+    test -f configure || ./bootstrap && \
+    ./configure --prefix=/usr --disable-syslogd --libexecdir=/usr/sbin --disable-logger --sysconfdir=/etc --localstatedir=/var && \
+    make -j"$(nproc)" && \
+    make install && \
+    rm -rf /tmp/*
+
 FROM ubuntu:22.04 AS dev-kernel
 
 RUN apt-get update && \
@@ -486,6 +517,9 @@ RUN passwd -d root && \
     rm -rf /tmp/*
 
 RUN npm i -g @openai/codex
+
+COPY --from=dev-telnet /usr/sbin/telnetd /usr/sbin/telnetd
+COPY --from=dev-telnet /usr/bin/telnet /usr/bin/telnet
 
 RUN ln -s /etc/bash.bashrc /etc/bashrc && \
     if id ubuntu; then userdel -f -r ubuntu; fi && \
