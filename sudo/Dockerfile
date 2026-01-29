@@ -4,16 +4,15 @@ FROM ubuntu:22.04 AS dev-kernel
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+    dbus \
+    iproute2 \
     initramfs-tools \
     kmod \
     linux-image-generic \
-    dbus \
-    iproute2 \
-    kmod \
     openssh-server \
     qemu-system \
-    systemd-sysv \
-    && rm -rf /var/lib/apt/lists/*
+    systemd-sysv && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN printf '%s\n' \
     9p \
@@ -183,7 +182,8 @@ RUN <<EOF
     rm -f /etc/apt/apt.conf.d/docker-clean
     echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
     (set +o pipefail; yes | unminimize)
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
 EOF
 
 RUN apt-get update && \
@@ -207,10 +207,9 @@ RUN apt-get update && \
     bash \
     bat \
     binutils \
-    dc \
     bpftrace \
-    bsdextrautils \
     bsd-mailx \
+    bsdextrautils \
     busybox \
     bzip2 \
     cabal-install \
@@ -218,8 +217,8 @@ RUN apt-get update && \
     certbot \
     clamav \
     composer \
-    cowsay \
     coreutils \
+    cowsay \
     cpio \
     cpulimit \
     crash \
@@ -231,14 +230,15 @@ RUN apt-get update && \
     daemontools \
     dash \
     dbus \
+    dc \
     debianutils \
     dialog \
     diffutils \
     distcc \
     dmidecode \
     dmsetup \
-    dnsutils \
     dnf \
+    dnsutils \
     docker.io \
     dosbox \
     dotnet-sdk-8.0 \
@@ -262,8 +262,8 @@ RUN apt-get update && \
     genisoimage \
     gettext \
     ghc \
-    ginac-tools \
     gimp \
+    ginac-tools \
     git \
     gnucobol \
     grc \
@@ -278,13 +278,14 @@ RUN apt-get update && \
     inetutils-telnetd \
     iproute2 \
     ispell \
-    jq \
     joe \
+    jq \
     kbd \
     krb5-user \
     ksh \
     latexmk \
     less \
+    lftp \
     libc-bin \
     libcap2-bin \
     libdate-manip-perl \
@@ -294,23 +295,22 @@ RUN apt-get update && \
     libnet-cups-perl \
     libvirt-clients \
     libwww-perl \
-    lftp \
     links \
     linux-tools-generic \
     logsave \
-    lua5.4 \
     ltrace \
+    lua5.4 \
     mailcap \
     make \
     man-db \
     mariadb-client \
     mawk \
     minicom \
-    mosquitto \
     monitoring-plugins \
     monitoring-plugins-basic \
     monitoring-plugins-contrib \
     monitoring-plugins-standard \
+    mosquitto \
     mtr-tiny \
     multitime \
     nano \
@@ -328,9 +328,9 @@ RUN apt-get update && \
     openjdk-11-jdk-headless \
     openjdk-11-jre-headless \
     openjdk-8-jdk-headless \
-    openvpn \
     openssh-client \
     openssl \
+    openvpn \
     original-awk \
     p7zip-full \
     pandoc \
@@ -341,12 +341,13 @@ RUN apt-get update && \
     policykit-1 \
     posh \
     postgresql-client \
-    puppet \
     procps \
+    pry \
+    puppet \
     putty-tools \
     python-is-python3 \
-    python2 \
     python-setuptools \
+    python2 \
     python3-pip \
     python3-setuptools \
     rake \
@@ -359,7 +360,6 @@ RUN apt-get update && \
     ruby-ascii85 \
     ruby-bundler \
     ruby-byebug \
-    pry \
     ruby-redcarpet \
     samba-client \
     sash \
@@ -382,7 +382,6 @@ RUN apt-get update && \
     tasksh \
     taskwarrior \
     tcl \
-    tk \
     tcpdump \
     tdb-tools \
     telnet \
@@ -392,6 +391,7 @@ RUN apt-get update && \
     texlive-xetex \
     tftp-hpa \
     time \
+    tk \
     tmate \
     tmux \
     torsocks \
@@ -401,10 +401,10 @@ RUN apt-get update && \
     valgrind \
     varnish \
     vim-nox \
-    wireshark \
     w3m \
     wget \
     whiptail \
+    wireshark \
     x11-apps \
     x11-xserver-utils \
     xdg-user-dirs \
@@ -416,37 +416,41 @@ RUN apt-get update && \
     zathura \
     zip \
     zsh \
-    zypper; \
-    ln -sf /usr/libexec/man-db/zsoelim /usr/bin/zsoelim; \
-    ln -sf /usr/bin/torsocks /usr/bin/torify; \
-    ln -sf /usr/bin/pdb3 /usr/bin/pdb; \
-    ln -sf /usr/bin/resolvectl /usr/bin/systemd-resolve; \
-    rm -f /usr/sbin/policy-rc.d; \
-    apt-get clean; \
+    zypper && \
+    ln -sf /usr/libexec/man-db/zsoelim /usr/bin/zsoelim && \
+    ln -sf /usr/bin/torsocks /usr/bin/torify && \
+    ln -sf /usr/bin/pdb3 /usr/bin/pdb && \
+    ln -sf /usr/bin/resolvectl /usr/bin/systemd-resolve && \
+    rm -f /usr/sbin/policy-rc.d && \
+    apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VER}.x | bash - && \
-    apt-get update && apt-get install --no-install-recommends -yqq nodejs && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    apt-get update && \
+    apt-get install --no-install-recommends -yqq nodejs && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN curl -sS https://bootstrap.pypa.io/pip/2.7/get-pip.py -o /tmp/get-pip.py; \
-    python2 /tmp/get-pip.py; \
-    rm /tmp/get-pip.py; \
-    easyi=/usr/lib/python2.7/dist-packages/easy_install.py; \
-    sed -i '1i #!/usr/bin/python2' "${easyi}"; \
-    chmod +x "${easyi}"; \
+RUN curl -sS https://bootstrap.pypa.io/pip/2.7/get-pip.py -o /tmp/get-pip.py && \
+    python2 /tmp/get-pip.py && \
+    rm /tmp/get-pip.py && \
+    easyi=/usr/lib/python2.7/dist-packages/easy_install.py && \
+    sed -i '1i #!/usr/bin/python2' "${easyi}" && \
+    chmod +x "${easyi}" && \
     ln -sf "$easyi" /usr/bin/easy_install && \
     rm -rf /tmp/*
 
-RUN cd /tmp; \
-    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"; \
-    unzip awscliv2.zip; \
+RUN cd /tmp && \
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && \
     ./aws/install && \
     rm -rf /tmp/*
 
-RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg && apt-get update -y && apt-get install google-cloud-cli -y
+RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
+    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg && \
+    apt-get update -y && apt-get install google-cloud-cli -y
 
-RUN curl -fSL "https://packages.chef.io/files/stable/chef-workstation/24.6.1066/ubuntu/22.04/chef-workstation_24.6.1066-1_amd64.deb" -o /tmp/chef.deb; \
+RUN curl -fSL "https://packages.chef.io/files/stable/chef-workstation/24.6.1066/ubuntu/22.04/chef-workstation_24.6.1066-1_amd64.deb" -o /tmp/chef.deb && \
     dpkg -i /tmp/chef.deb && \
     rm -rf /tmp/*
 
@@ -456,8 +460,8 @@ RUN cd /opt && \
     ln -s /opt/julia/bin/julia /usr/local/bin/julia
 
 RUN cd /tmp; \
-    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"; \
-    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl; \
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
     rm -rf /tmp/*
 
 RUN pip3 install pykickstart

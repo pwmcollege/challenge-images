@@ -11,11 +11,12 @@ RUN <<EOF
     rm -f /etc/apt/apt.conf.d/docker-clean
     echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
     (set +o pipefail; yes | unminimize)
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
 EOF
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+    apt-get install -y \
     acl \
     alpine \
     apache2-utils \
@@ -142,10 +143,10 @@ RUN apt-get update && \
     xxd \
     xz-utils \
     yash \
-    zsh; \
-    ln -sf /usr/libexec/man-db/zsoelim /usr/bin/zsoelim; \
-    rm -f /usr/sbin/policy-rc.d; \
-    apt-get clean; \
+    zsh && \
+    ln -sf /usr/libexec/man-db/zsoelim /usr/bin/zsoelim && \
+    rm -f /usr/sbin/policy-rc.d && \
+    apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --break-system-packages pykickstart
