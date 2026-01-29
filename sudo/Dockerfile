@@ -275,6 +275,7 @@ RUN apt-get update && \
     iamerican \
     iftop \
     inetutils-ftp \
+    inetutils-telnetd \
     iproute2 \
     ispell \
     jq \
