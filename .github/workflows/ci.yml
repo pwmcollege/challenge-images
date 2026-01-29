@@ -14,6 +14,7 @@ on:
           - cve-2023-22809
           - cve-2025-32463
           - cve-2025-55182
+          - cve-2025-59825
           - cve-2026-24061
           - sudo
           - suid
@@ -28,13 +29,14 @@ jobs:
           - cve-2023-22809
           - cve-2025-32463
           - cve-2025-55182
+          - cve-2025-59825
           - cve-2026-24061
           - sudo
           - suid
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 2
 
