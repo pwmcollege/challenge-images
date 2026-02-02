@@ -10,7 +10,8 @@ ENV PYTHONUNBUFFERED=1 \
     CHROME_BIN=/usr/bin/chromium \
     GECKO_BIN=/usr/local/bin/firefox
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     bat \
     binutils \
     build-essential \
@@ -98,15 +99,3 @@ RUN ln -s /etc/bash.bashrc /etc/bashrc && \
 
 ADD --chown=0:0 --chmod=6755 https://github.com/pwncollege/exec-suid/releases/latest/download/exec-suid /usr/bin/exec-suid
 ADD --chown=0:0 --chmod=6755 https://github.com/pwncollege/exec-suid/releases/download/v0.1.5/exec-suid /opt/exec-suid
-
-# chrome sandbox wants root owner and 4755
-# still broken anyway so need to use with --no-sandbox
-RUN set -eux && \
-    arch="$(dpkg --print-architecture)" && \
-    [ "$arch" != "amd64" ] || { \
-    apt-get update && \
-    wget -O /tmp/google-chrome.deb "https://dl.google.com/linux/direct/google-chrome-${CHROME_CHANNEL}_current_${arch}.deb" && \
-    (apt-get install -y /tmp/google-chrome.deb || apt-get -f install -y) && \
-    rm -f /tmp/google-chrome.deb && \
-    rm -rf /var/lib/apt/lists/*; \
-    }
