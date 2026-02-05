@@ -118,6 +118,8 @@ exec /usr/bin/qemu-system-x86_64 \
     -initrd "$INITRD_PATH" \
     -fsdev local,id=rootfs,path=/,security_model=passthrough,multidevs=remap \
     -device virtio-9p-pci,fsdev=rootfs,mount_tag=rootfs \
+    -fsdev local,id=homefs,path=/home/hacker,security_model=passthrough \
+    -device virtio-9p-pci,fsdev=homefs,mount_tag=homefs \
     -device e1000,netdev=net0 \
     -netdev user,id=net0,hostfwd=tcp::23-:22 \
     -drive file="$DISK_PATH",format=raw,if=none,id=virtiodisk \
@@ -160,9 +162,25 @@ ExecStart=/bin/hostname vm
 WantedBy=multi-user.target
 EOF
 
+COPY <<'EOF' /etc/systemd/system/mount-homefs.service
+[Unit]
+Description=Mount homefs
+After=local-fs.target
+Before=multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/mount -t 9p -o trans=virtio,version=9p2000.L,nosuid homefs /home/hacker
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 RUN echo vm > /etc/hostname && \
     ln -sf /etc/resolv.conf /run/systemd/resolve/resolv.conf && \
     ln -sf /etc/systemd/system/set-vm-hostname.service /etc/systemd/system/multi-user.target.wants/set-vm-hostname.service && \
+    ln -sf /etc/systemd/system/mount-homefs.service /etc/systemd/system/multi-user.target.wants/mount-homefs.service && \
     ln -sf /lib/systemd/system/systemd-networkd.service /etc/systemd/system/multi-user.target.wants/systemd-networkd.service && \
     ln -sf /lib/systemd/system/systemd-resolved.service /etc/systemd/system/multi-user.target.wants/systemd-resolved.service && \
     ln -sf /lib/systemd/system/ssh.service /etc/systemd/system/multi-user.target.wants/ssh.service
