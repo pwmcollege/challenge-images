@@ -524,6 +524,7 @@ COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
 ENV PATH="/usr/lib/nagios/plugins:/usr/games:${PATH}"
 
 RUN passwd -d root && \
+    mkdir -p /home/hacker && \
     vm start && \
     until vm exec echo ok | grep -qx ok; do sleep 1; done && \
     vm exec systemctl enable --now snapd.socket && \
