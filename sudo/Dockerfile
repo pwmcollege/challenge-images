@@ -231,6 +231,12 @@ RUN <<EOF
     rm -f /etc/apt/apt.conf.d/docker-clean
     echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
     (set +o pipefail; yes | unminimize)
+
+    curl -fsSL https://deb.nodesource.com/setup_${NODE_VER}.x | bash -
+
+    echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+    
     apt-get clean
     rm -rf /var/lib/apt/lists/*
 EOF
@@ -315,6 +321,7 @@ RUN apt-get update && \
     ginac-tools \
     git \
     gnucobol \
+    google-cloud-cli \
     grc \
     grep \
     groff-base \
@@ -372,6 +379,7 @@ RUN apt-get update && \
     netcat-openbsd \
     nftables \
     nmap \
+    nodejs \
     ntpsec-ntpdate \
     octave \
     openjdk-11-jdk-headless \
@@ -474,55 +482,6 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VER}.x | bash - && \
-    apt-get update && \
-    apt-get install --no-install-recommends -yqq nodejs && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN curl -sS https://bootstrap.pypa.io/pip/2.7/get-pip.py -o /tmp/get-pip.py && \
-    python2 /tmp/get-pip.py && \
-    rm /tmp/get-pip.py && \
-    easyi=/usr/lib/python2.7/dist-packages/easy_install.py && \
-    sed -i '1i #!/usr/bin/python2' "${easyi}" && \
-    chmod +x "${easyi}" && \
-    ln -sf "$easyi" /usr/bin/easy_install && \
-    rm -rf /tmp/*
-
-RUN cd /tmp && \
-    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
-    unzip awscliv2.zip && \
-    ./aws/install && \
-    rm -rf /tmp/*
-
-RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
-    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg && \
-    apt-get update -y && apt-get install google-cloud-cli -y
-
-RUN curl -fSL "https://packages.chef.io/files/stable/chef-workstation/24.6.1066/ubuntu/22.04/chef-workstation_24.6.1066-1_amd64.deb" -o /tmp/chef.deb && \
-    dpkg -i /tmp/chef.deb && \
-    rm -rf /tmp/*
-
-RUN cd /opt && \
-    curl -fSL "https://julialang-s3.julialang.org/bin/linux/x64/1.12/julia-1.12.4-linux-x86_64.tar.gz" | tar -xzf - && \
-    mv /opt/julia-1.12.4/ /opt/julia/ && \
-    ln -s /opt/julia/bin/julia /usr/local/bin/julia
-
-RUN cd /tmp; \
-    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
-    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
-    rm -rf /tmp/*
-
-RUN pip3 install pykickstart
-
-RUN ln -s /lib64/ld-linux-x86-64.so.2 /usr/bin/ld.so
-
-RUN gem install fpm
-
-COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
-
-ENV PATH="/usr/lib/nagios/plugins:/usr/games:${PATH}"
-
 RUN passwd -d root && \
     mkdir -p /home/hacker && \
     vm start && \
@@ -533,12 +492,48 @@ RUN passwd -d root && \
     vm exec snap install core && \
     vm stop && \
     usermod -p '*' root && \
-    rm -rf /tmp/*
+    rm -rf /home/hacker
 
-RUN npm i -g @openai/codex
-
+COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
 COPY --from=dev-telnet /usr/sbin/telnetd /usr/sbin/telnetd
 COPY --from=dev-telnet /usr/bin/telnet /usr/bin/telnet
+
+ENV PATH="/usr/lib/nagios/plugins:/usr/games:${PATH}"
+
+RUN <<EOF
+    cd /tmp
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    unzip awscliv2.zip
+    ./aws/install
+
+    curl -sS https://bootstrap.pypa.io/pip/2.7/get-pip.py -o get-pip.py
+    python2 get-pip.py
+    easyi=/usr/lib/python2.7/dist-packages/easy_install.py
+    sed -i '1i #!/usr/bin/python2' "${easyi}"
+    chmod +x "${easyi}"
+    ln -sf "$easyi" /usr/bin/easy_install
+
+    curl -fSL "https://packages.chef.io/files/stable/chef-workstation/24.6.1066/ubuntu/22.04/chef-workstation_24.6.1066-1_amd64.deb" -o chef.deb
+    dpkg -i chef.deb
+
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+    cd /opt
+    curl -fSL "https://julialang-s3.julialang.org/bin/linux/x64/1.12/julia-1.12.4-linux-x86_64.tar.gz" | tar -xzf -
+    mv /opt/julia-1.12.4/ /opt/julia/
+    ln -s /opt/julia/bin/julia /usr/local/bin/julia
+EOF
+
+RUN <<EOF
+    ln -s /lib64/ld-linux-x86-64.so.2 /usr/bin/ld.so
+
+    pip3 install pykickstart
+
+    gem install fpm
+
+    npm i -g @openai/codex
+EOF
 
 RUN ln -s /etc/bash.bashrc /etc/bashrc && \
     if id ubuntu; then userdel -f -r ubuntu; fi && \
