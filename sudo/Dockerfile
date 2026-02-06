@@ -524,6 +524,8 @@ RUN <<EOF
     curl -fSL "https://julialang-s3.julialang.org/bin/linux/x64/1.12/julia-1.12.4-linux-x86_64.tar.gz" | tar -xzf -
     mv /opt/julia-1.12.4/ /opt/julia/
     ln -s /opt/julia/bin/julia /usr/local/bin/julia
+
+    rm -rf /tmp/*
 EOF
 
 RUN <<EOF
