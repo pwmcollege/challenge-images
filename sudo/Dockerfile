@@ -11,7 +11,6 @@ RUN apt-get update && \
     build-essential \
     ca-certificates \
     coreutils \
-    curl \
     diffutils \
     git \
     grep \
@@ -36,6 +35,8 @@ FROM ubuntu:22.04 AS dev-kernel
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
     dbus \
     iproute2 \
     initramfs-tools \
