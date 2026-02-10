@@ -18,4 +18,4 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 RUN ln -sf /usr/bin/python3 /usr/local/bin/python && \
-    ln -sf /usr/bin/python3 ln -sf /usr/bin/python
+    ln -sf /usr/bin/python3 /usr/bin/python
