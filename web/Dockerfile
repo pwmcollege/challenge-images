@@ -28,6 +28,7 @@ RUN apt-get update && \
     htop \
     iproute2 \
     iputils-ping \
+    iptables \
     jq \
     less \
     libasound2 \
