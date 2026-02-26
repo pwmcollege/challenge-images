@@ -117,6 +117,7 @@ RUN pip install --no-cache-dir --ignore-installed blinker \
     selenium
 
 RUN ln -s /etc/bash.bashrc /etc/bashrc && \
+    if id ubuntu; then userdel -f -r ubuntu; fi && \
     chown -R 0:0 /usr/bin /usr/local/bin && \
     find / -xdev -type f -perm -4000 -exec chmod u-s {} \; && \
     ln -s /usr/bin/python3 /usr/bin/python && \
