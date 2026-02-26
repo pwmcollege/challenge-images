@@ -9,7 +9,7 @@ ENV PYTHONUNBUFFERED=1 \
     GECKO_BIN=/usr/local/bin/firefox
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+    apt-get install -y \
     bat \
     binutils \
     build-essential \
@@ -54,6 +54,7 @@ RUN apt-get update && \
     ncurses-term \
     neovim \
     netcat-openbsd \
+    nftables \
     nmap \
     openssl \
     p7zip-full \
@@ -78,6 +79,8 @@ RUN apt-get update && \
     zsh \
     zstd \
     && rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/usr/sbin:/sbin:${PATH}"
 
 RUN wget -q -O - "https://github.com/mozilla/geckodriver/releases/download/v${GECKODRIVER_VER}/geckodriver-v${GECKODRIVER_VER}-$([ \"$(dpkg --print-architecture)\" = \"arm64\" ] && printf '%s' linux-aarch64 || printf '%s' linux64).tar.gz" | tar xz -C /usr/local/bin
 
