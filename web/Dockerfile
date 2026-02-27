@@ -40,6 +40,7 @@ RUN apt-get update && \
     dnsutils \
     fd-find \
     file \
+    firefox \
     firefox-esr \
     fish \
     git \
