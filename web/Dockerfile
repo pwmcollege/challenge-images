@@ -127,6 +127,8 @@ RUN ln -s /etc/bash.bashrc /etc/bashrc && \
     ln -s /usr/bin/pip /usr/local/bin/pip && \
     ln -s /usr/bin/pip3 /usr/local/bin/pip3
 
+COPY --chown=0:0 --chmod=554 cdn /opt/cdn/server
+ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4 /opt/cdn/@tailwindcss/browser@4
 
 ADD --chown=0:0 --chmod=6755 https://github.com/pwncollege/exec-suid/releases/latest/download/exec-suid /usr/bin/exec-suid
 ADD --chown=0:0 --chmod=6755 https://github.com/pwncollege/exec-suid/releases/download/v0.1.5/exec-suid /opt/exec-suid

@@ -1,0 +1,97 @@
+#!/usr/bin/env python
+
+import io
+import mimetypes
+import os
+import stat
+
+from flask import Flask, abort, make_response, request, send_file
+
+CDN_ROOT = "/opt/cdn"
+CDN_HOST = os.getenv("CDN_HOST", "cdn.internal")
+CDN_PORT = int(os.getenv("CDN_PORT", "80"))
+ENFORCE_HOST = os.path.exists("/challenge/.cdn_enforce_host")
+
+app = Flask(__name__)
+
+
+def serve_file(root_dir, url_path):
+    rel = url_path.lstrip("/")
+
+    if not rel or rel.endswith("/"):
+        raise FileNotFoundError
+
+    norm = os.path.normpath(rel)
+    if norm.startswith("..") or os.path.isabs(norm) or "/.." in norm or norm == "..":
+        raise FileNotFoundError
+
+    parts = [p for p in norm.split("/") if p not in ("", ".")]
+    if not parts:
+        raise FileNotFoundError
+
+    root_fd = os.open(root_dir, os.O_RDONLY | os.O_DIRECTORY)
+    dir_fd = root_fd
+    try:
+        for comp in parts[:-1]:
+            next_fd = os.open(
+                comp, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=dir_fd
+            )
+            if dir_fd != root_fd:
+                os.close(dir_fd)
+            dir_fd = next_fd
+
+        file_fd = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW, dir_fd=dir_fd)
+
+        st = os.fstat(file_fd)
+        if not stat.S_ISREG(st.st_mode):
+            os.close(file_fd)
+            raise FileNotFoundError
+
+        return io.BufferedReader(io.FileIO(file_fd, "rb", closefd=True))
+
+    finally:
+        if dir_fd != root_fd:
+            os.close(dir_fd)
+        os.close(root_fd)
+
+
+@app.before_request
+def host_check():
+    if not ENFORCE_HOST:
+        return
+    host = (request.host or "").split(":")[0].lower()
+    if host != CDN_HOST:
+        abort(404)
+
+
+@app.get("/")
+def root():
+    return "OK\n", 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+
+@app.get("/<path:url_path>")
+def serve(url_path):
+    try:
+        f = serve_file(CDN_ROOT, url_path)
+    except (FileNotFoundError, OSError):
+        abort(404)
+
+    guessed_type, _ = mimetypes.guess_type(url_path)
+
+    resp = make_response(
+        send_file(
+            f,
+            mimetype=guessed_type or "application/octet-stream",
+            download_name=os.path.basename(url_path),
+            conditional=True,
+            etag=True,
+            last_modified=None,
+        )
+    )
+    resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    return resp
+
+
+if __name__ == "__main__":
+    app.run(host=CDN_HOST, port=CDN_PORT)
