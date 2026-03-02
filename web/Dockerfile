@@ -117,44 +117,24 @@ RUN pip install --no-cache-dir --ignore-installed blinker \
     requests \
     selenium
 
+COPY --chown=0:0 --chmod=554 ./build/cdn /opt/cdn/server
+COPY --chown=0:0 --chmod=444 ./build/mime_overrides.json /opt/cdn/mime_overrides.json
+ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4 /opt/cdn/@tailwindcss/browser@4
+
+COPY --chown=0:0 --chmod=774 ./build/fetch_inter.sh /tmp/fetch_inter.sh
+RUN /tmp/fetch_inter.sh 4.1 && \
+    rm -f /tmp/fetch_inter.sh
+
 RUN ln -s /etc/bash.bashrc /etc/bashrc && \
     if id ubuntu; then userdel -f -r ubuntu; fi && \
     chown -R 0:0 /usr/bin /usr/local/bin && \
     find / -xdev -type f -perm -4000 -exec chmod u-s {} \; && \
+    find /opt/cdn -type d -exec chmod 755 {} \; && \
     ln -s /usr/bin/python3 /usr/bin/python && \
     ln -s /usr/bin/python /usr/local/bin/python && \
     ln -s /usr/bin/python3 /usr/local/bin/python3 && \
     ln -s /usr/bin/pip /usr/local/bin/pip && \
     ln -s /usr/bin/pip3 /usr/local/bin/pip3
-
-COPY --chown=0:0 --chmod=554 cdn /opt/cdn/server
-ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4 /opt/cdn/@tailwindcss/browser@4
-
-RUN mkdir -p /opt/cdn/fonts/inter && \
-    curl -fL https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip -o /tmp/inter.zip && \
-    unzip -q /tmp/inter.zip -d /tmp/inter && \
-    find /tmp/inter -type f -path '*/web/*.woff2' -exec cp {} /opt/cdn/fonts/inter/ \; && \
-    rm -rf /tmp/inter /tmp/inter.zip && \
-    for f in /opt/cdn/fonts/inter/*.woff2; do \
-    name=$(basename "$f" .woff2); \
-    style="normal"; \
-    case "$name" in \
-    *Italic) style="italic"; name="${name%Italic}";; \
-    esac; \
-    case "$name" in \
-    *Thin) weight=100;; \
-    *ExtraLight) weight=200;; \
-    *Light) weight=300;; \
-    *Regular) weight=400;; \
-    *Medium) weight=500;; \
-    *SemiBold) weight=600;; \
-    *Bold) weight=700;; \
-    *ExtraBold) weight=800;; \
-    *Black) weight=900;; \
-    *) continue;; \
-    esac; \
-    echo "@font-face { font-family: 'Inter'; font-style: $style; font-weight: $weight; font-display: swap; src: url('/fonts/inter/$(basename "$f")') format('woff2'); }" >> /opt/cdn/fonts/inter.css; \
-    done
 
 ADD --chown=0:0 --chmod=6755 https://github.com/pwncollege/exec-suid/releases/latest/download/exec-suid /usr/bin/exec-suid
 ADD --chown=0:0 --chmod=6755 https://github.com/pwncollege/exec-suid/releases/download/v0.1.5/exec-suid /opt/exec-suid

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import io
+import json
 import mimetypes
 import os
 import stat
@@ -11,8 +12,22 @@ CDN_ROOT = "/opt/cdn"
 CDN_HOST = os.getenv("CDN_HOST", "cdn.internal")
 CDN_PORT = int(os.getenv("CDN_PORT", "80"))
 ENFORCE_HOST = os.path.exists("/challenge/.cdn_enforce_host")
+MIME_OVERRIDES_PATH = os.getenv("MIME_OVERRIDES", "/opt/cdn/mime_overrides.json")
 
 app = Flask(__name__)
+
+try:
+    with open(MIME_OVERRIDES_PATH, "r") as f:
+        MIME_OVERRIDES = json.load(f)
+except Exception:
+    MIME_OVERRIDES = {}
+
+mimetypes.add_type("text/css", ".css")
+mimetypes.add_type("application/javascript", ".js")
+mimetypes.add_type("application/javascript", ".mjs")
+mimetypes.add_type("font/woff2", ".woff2")
+mimetypes.add_type("font/woff", ".woff")
+mimetypes.add_type("application/octet-stream", ".wasm")
 
 
 def serve_file(root_dir, url_path):
@@ -64,33 +79,56 @@ def host_check():
         abort(404)
 
 
+def apply_cors(resp):
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Access-Control-Allow-Methods"] = "GET, HEAD, OPTIONS"
+    resp.headers["Access-Control-Allow-Headers"] = "Range"
+    resp.headers["Access-Control-Max-Age"] = "86400"
+    return resp
+
+
 @app.get("/")
 def root():
-    return "OK\n", 200, {"Content-Type": "text/plain; charset=utf-8"}
+    resp = make_response("OK\n", 200)
+    resp.headers["Content-Type"] = "text/plain; charset=utf-8"
+    return apply_cors(resp)
+
+
+@app.route("/<path:url_path>", methods=["OPTIONS"])
+def options(url_path):
+    resp = make_response("", 204)
+    return apply_cors(resp)
 
 
 @app.get("/<path:url_path>")
 def serve(url_path):
+    if url_path.lstrip("/").startswith("mime_overrides"):
+        abort(404)
+
     try:
         f = serve_file(CDN_ROOT, url_path)
     except (FileNotFoundError, OSError):
         abort(404)
 
     guessed_type, _ = mimetypes.guess_type(url_path)
+    forced_type = MIME_OVERRIDES.get(url_path.lstrip("/"))
+    content_type = forced_type or guessed_type or "application/octet-stream"
 
     resp = make_response(
         send_file(
             f,
-            mimetype=guessed_type or "application/octet-stream",
+            mimetype=content_type,
             download_name=os.path.basename(url_path),
             conditional=True,
             etag=True,
             last_modified=None,
         )
     )
+
     resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
     resp.headers["X-Content-Type-Options"] = "nosniff"
-    return resp
+
+    return apply_cors(resp)
 
 
 if __name__ == "__main__":
