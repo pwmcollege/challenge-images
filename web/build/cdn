@@ -10,7 +10,7 @@ from flask import Flask, abort, make_response, request, send_file
 
 CDN_ROOT = "/opt/cdn"
 CDN_HOST = os.getenv("CDN_HOST", "cdn.internal")
-CDN_PORT = int(os.getenv("CDN_PORT", "80"))
+CDN_PORT = int(os.getenv("CDN_PORT", "443"))
 ENFORCE_HOST = os.path.exists("/challenge/.cdn_enforce_host")
 MIME_OVERRIDES_PATH = os.getenv("MIME_OVERRIDES", "/opt/cdn/mime_overrides.json")
 
@@ -132,4 +132,12 @@ def serve(url_path):
 
 
 if __name__ == "__main__":
-    app.run(host=CDN_HOST, port=CDN_PORT)
+    app.run(
+        host=CDN_HOST,
+        port=CDN_PORT,
+        ssl_context=(
+            ("/etc/ssl/certs/internal.cert.pem", "/etc/ssl/private/internal.key.pem")
+            if CDN_PORT == 443
+            else None
+        ),
+    )

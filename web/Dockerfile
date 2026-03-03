@@ -117,6 +117,16 @@ RUN pip install --no-cache-dir --ignore-installed blinker \
     requests \
     selenium
 
+RUN mkdir -p /etc/ssl/private /etc/ssl/certs && \
+    openssl req -x509 -newkey rsa:2048 -nodes \
+    -keyout /etc/ssl/private/internal.key.pem \
+    -out /etc/ssl/certs/internal.cert.pem \
+    -days 3650 \
+    -subj "/CN=cdn.internal" \
+    -addext "subjectAltName=DNS:cdn.internal,DNS:challenge.internal" && \
+    chmod 600 /etc/ssl/private/internal.key.pem && \
+    chmod 644 /etc/ssl/certs/internal.cert.pem
+
 COPY --chown=0:0 --chmod=554 ./build/cdn /opt/cdn/server
 COPY --chown=0:0 --chmod=444 ./build/mime_overrides.json /opt/cdn/mime_overrides.json
 ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4 /opt/cdn/@tailwindcss/browser@4
