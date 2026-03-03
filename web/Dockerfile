@@ -140,6 +140,9 @@ RUN umask 077 && \
     update-ca-certificates && \
     rm -rf /opt/ca
 
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
+    SSL_CERT_DIR=/etc/ssl/certs
+
 COPY --chown=0:0 --chmod=554 ./build/cdn /opt/cdn/server
 COPY --chown=0:0 --chmod=444 ./build/mime_overrides.json /opt/cdn/mime_overrides.json
 ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4 /opt/cdn/@tailwindcss/browser@4
