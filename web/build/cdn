@@ -137,7 +137,7 @@ if __name__ == "__main__":
         port=CDN_PORT,
         ssl_context=(
             ("/etc/ssl/certs/internal.cert.pem", "/etc/ssl/private/internal.key.pem")
-            if CDN_PORT == 443
+            if CDN_PORT == 443 and CDN_HOST == "cdn.internal"
             else None
         ),
     )

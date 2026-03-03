@@ -125,7 +125,9 @@ RUN mkdir -p /etc/ssl/private /etc/ssl/certs && \
     -subj "/CN=cdn.internal" \
     -addext "subjectAltName=DNS:cdn.internal,DNS:challenge.internal" && \
     chmod 600 /etc/ssl/private/internal.key.pem && \
-    chmod 644 /etc/ssl/certs/internal.cert.pem
+    chmod 644 /etc/ssl/certs/internal.cert.pem && \
+    cp /etc/ssl/certs/internal.cert.pem /usr/local/share/ca-certificates/internal.crt && \
+    update-ca-certificates
 
 COPY --chown=0:0 --chmod=554 ./build/cdn /opt/cdn/server
 COPY --chown=0:0 --chmod=444 ./build/mime_overrides.json /opt/cdn/mime_overrides.json
