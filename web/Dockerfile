@@ -127,14 +127,15 @@ RUN umask 077 && \
     -out /opt/ca/internalCA.crt && \
     openssl genrsa -out /opt/ca/internal.key.pem 2048 && \
     openssl req -new -key /opt/ca/internal.key.pem -subj "/CN=cdn.internal" -out /opt/ca/internal.csr.pem && \
+    printf "subjectAltName=DNS:cdn.internal,DNS:challenge.internal\nkeyUsage=digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth" > /opt/ca/san.cnf && \
     openssl x509 -req -in /opt/ca/internal.csr.pem \
     -CA /opt/ca/internalCA.crt -CAkey /opt/ca/internalCA.key -CAcreateserial \
     -out /etc/ssl/certs/internal.cert.pem -days 825 -sha256 \
-    -extfile <(printf "subjectAltName=DNS:cdn.internal,DNS:challenge.internal\nkeyUsage=digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth") && \
+    -extfile /opt/ca/san.cnf && \
     cp /opt/ca/internal.key.pem /etc/ssl/private/internal.key.pem && \
     cp /opt/ca/internalCA.crt /usr/local/share/ca-certificates/internalCA.crt && \
     update-ca-certificates && \
-    cat /usr/local/share/ca-certificates/internalCA.crt >> $(python -m certifi) && \
+    cat /usr/local/share/ca-certificates/internalCA.crt >> $(python3 -m certifi) && \
     rm -rf /opt/ca
 
 ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
