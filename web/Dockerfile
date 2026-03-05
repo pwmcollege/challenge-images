@@ -120,28 +120,26 @@ RUN pip install --no-cache-dir --ignore-installed blinker \
 RUN umask 077 && \
     mkdir -p /opt/ca /etc/ssl/private /etc/ssl/certs && \
     openssl genrsa -out /opt/ca/internalCA.key 4096 && \
-    openssl req -x509 -new -nodes -key /opt/ca/internalCA.key \
-    -sha256 -days 3650 \
+    openssl req -x509 -new -nodes -key /opt/ca/internalCA.key -sha256 -days 3650 \
     -subj "/CN=Internal CA" \
+    -addext "basicConstraints=critical,CA:TRUE" \
+    -addext "keyUsage=critical,digitalSignature,keyCertSign,cRLSign" \
     -out /opt/ca/internalCA.crt && \
     openssl genrsa -out /opt/ca/internal.key.pem 2048 && \
-    openssl req -new -key /opt/ca/internal.key.pem \
-    -subj "/CN=cdn.internal" \
-    -out /opt/ca/internal.csr.pem && \
-    printf "subjectAltName=DNS:cdn.internal,DNS:challenge.internal\n" > /opt/ca/san.cnf && \
+    openssl req -new -key /opt/ca/internal.key.pem -subj "/CN=cdn.internal" -out /opt/ca/internal.csr.pem && \
     openssl x509 -req -in /opt/ca/internal.csr.pem \
     -CA /opt/ca/internalCA.crt -CAkey /opt/ca/internalCA.key -CAcreateserial \
-    -out /etc/ssl/certs/internal.cert.pem \
-    -days 825 -sha256 -extfile /opt/ca/san.cnf && \
+    -out /etc/ssl/certs/internal.cert.pem -days 825 -sha256 \
+    -extfile <(printf "subjectAltName=DNS:cdn.internal,DNS:challenge.internal\nkeyUsage=digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth") && \
     cp /opt/ca/internal.key.pem /etc/ssl/private/internal.key.pem && \
-    chmod 600 /etc/ssl/private/internal.key.pem && \
-    chmod 644 /etc/ssl/certs/internal.cert.pem && \
     cp /opt/ca/internalCA.crt /usr/local/share/ca-certificates/internalCA.crt && \
     update-ca-certificates && \
+    cat /usr/local/share/ca-certificates/internalCA.crt >> $(python -m certifi) && \
     rm -rf /opt/ca
 
 ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
-    SSL_CERT_DIR=/etc/ssl/certs
+    SSL_CERT_DIR=/etc/ssl/certs \
+    REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
 COPY --chown=0:0 --chmod=554 ./build/cdn /opt/cdn/server
 COPY --chown=0:0 --chmod=444 ./build/mime_overrides.json /opt/cdn/mime_overrides.json
