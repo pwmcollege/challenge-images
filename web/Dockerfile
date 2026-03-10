@@ -107,6 +107,7 @@ RUN apt-get update && \
 RUN wget -q -O - "https://github.com/mozilla/geckodriver/releases/download/v${GECKODRIVER_VER}/geckodriver-v${GECKODRIVER_VER}-$([ \"$(dpkg --print-architecture)\" = \"arm64\" ] && printf '%s' linux-aarch64 || printf '%s' linux64).tar.gz" | tar xz -C /usr/local/bin
 
 RUN pip install --no-cache-dir --ignore-installed blinker \
+    beautifulsoup4 \
     flask \
     git+https://github.com/Gallopsled/pwntools#egg=pwntools \
     git+https://github.com/pwncollege/dojjail#egg=dojjail \
