@@ -112,6 +112,7 @@ RUN pip install --no-cache-dir --ignore-installed blinker \
     git+https://github.com/Gallopsled/pwntools#egg=pwntools \
     git+https://github.com/pwncollege/dojjail#egg=dojjail \
     gunicorn \
+    html5lib \
     ipython \
     psutil \
     pycryptodome \
