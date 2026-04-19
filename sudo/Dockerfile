@@ -512,7 +512,8 @@ RUN <<EOF
     chmod +x "${easyi}"
     ln -sf "$easyi" /usr/bin/easy_install
 
-    curl -fSL "https://packages.chef.io/files/stable/chef-workstation/24.6.1066/ubuntu/22.04/chef-workstation_24.6.1066-1_amd64.deb" -o chef.deb
+    CHEF_VERSION=$(curl -fsSL https://raw.githubusercontent.com/chef/chef-workstation/main/Dockerfile | sed -n 's/^ARG VERSION=\(.*\)/\1/p')
+    curl -fSL "https://packages.chef.io/files/stable/chef-workstation/${CHEF_VERSION}/ubuntu/22.04/chef-workstation_${CHEF_VERSION}-1_amd64.deb" -o chef.deb
     dpkg -i chef.deb
 
     curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
