@@ -2,20 +2,15 @@ IMAGES := capabilities cve-2021-3156 cve-2023-22809 cve-2025-32463 cve-2025-5518
 PLATFORM ?= linux/amd64
 VERSION ?=
 PUSH ?= 0
-REPOSITORY := $(if $(USERNAME),$(USERNAME)/,)$(IMAGENAME)
 OUTPUT := $(if $(filter 1 true yes,$(PUSH)),--push,--load)
-VERSION_SUFFIX := $(if $(VERSION),-$(VERSION),)
 
 .DEFAULT_GOAL := all
-.PHONY: all check-env $(IMAGES)
+.PHONY: all $(IMAGES)
 
 all: $(IMAGES)
 
-check-env:
-	@test -n "$(IMAGENAME)" || { echo "IMAGENAME is required"; exit 1; }
-
-$(IMAGES): check-env
+$(IMAGES):
 	rm -f "$@/bash.bashrc"
 	cp bash.bashrc "$@/"
 	trap 'rm -f "$@/bash.bashrc"' EXIT INT TERM; \
-	docker buildx build --platform "$(PLATFORM)" -t "$(REPOSITORY):$@$(VERSION_SUFFIX)" $(OUTPUT) "$@"
+	docker buildx build --platform "$(PLATFORM)" -t "$(if $(USERNAME),$(USERNAME)/,)$@$(if $(VERSION),:$(VERSION),)" $(OUTPUT) "$@"
