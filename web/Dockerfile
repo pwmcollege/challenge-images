@@ -152,6 +152,8 @@ COPY --chown=0:0 --chmod=774 ./build/fetch_inter.sh /tmp/fetch_inter.sh
 RUN /tmp/fetch_inter.sh 4.1 && \
     rm -f /tmp/fetch_inter.sh
 
+COPY --chown=0:0 --from=pwmcollege/glow /usr/local/bin/glow /usr/local/bin/glow
+
 COPY bash.bashrc /opt/bash/bash.bashrc
 
 RUN printf '\n[ "$UID" -eq 1000 ] && . /opt/bash/bash.bashrc\n' >> /etc/bash.bashrc && \

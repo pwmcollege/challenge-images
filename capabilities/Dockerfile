@@ -21,6 +21,8 @@ RUN apt-get update && \
 RUN ln -sf /usr/bin/python3 /usr/local/bin/python && \
     ln -sf /usr/bin/python3 /usr/bin/python
 
+COPY --chown=0:0 --from=pwmcollege/glow /usr/local/bin/glow /usr/local/bin/glow
+
 COPY bash.bashrc /opt/bash/bash.bashrc
 
 RUN printf '\n[ "$UID" -eq 1000 ] && . /opt/bash/bash.bashrc\n' >> /etc/bash.bashrc && \

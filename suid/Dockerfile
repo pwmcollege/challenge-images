@@ -149,6 +149,8 @@ RUN apt-get update && \
 
 RUN pip3 install --break-system-packages pykickstart
 
+COPY --chown=0:0 --from=pwmcollege/glow /usr/local/bin/glow /usr/local/bin/glow
+
 COPY bash.bashrc /opt/bash/bash.bashrc
 
 RUN printf '\n[ "$UID" -eq 1000 ] && . /opt/bash/bash.bashrc\n' >> /etc/bash.bashrc && \

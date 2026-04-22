@@ -15,7 +15,7 @@ if [ ! -e "/tmp/.dojo/readme-once" ]; then
 
     if [ -n "$README" ]; then
         if command -v glow > /dev/null 2>&1; then
-            PAGER="less -ERX" glow --pager "$README"
+            glow -p "$README"
         elif command -v less > /dev/null 2>&1; then
             less -ERX "$README"
         else
