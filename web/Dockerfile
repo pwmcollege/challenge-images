@@ -154,7 +154,7 @@ RUN /tmp/fetch_inter.sh 4.1 && \
 
 COPY bash.bashrc /opt/bash/bash.bashrc
 
-RUN echo -e '\n[ "$UID" -eq 1000 ] && . /opt/bash/bash.bashrc' >> /etc/bash.bashrc && \
+RUN printf '\n[ "$UID" -eq 1000 ] && . /opt/bash/bash.bashrc\n' >> /etc/bash.bashrc && \
     ln -s /etc/bash.bashrc /etc/bashrc && \
     if id ubuntu; then userdel -f -r ubuntu; fi && \
     chown -R 0:0 /usr/bin /usr/local/bin && \

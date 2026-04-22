@@ -30,5 +30,5 @@ EOF
 
 COPY bash.bashrc /opt/bash/bash.bashrc
 
-RUN echo -e '\n[ "$UID" -eq 1000 ] && . /opt/bash/bash.bashrc' >> /etc/bash.bashrc && \
+RUN printf '\n[ "$UID" -eq 1000 ] && . /opt/bash/bash.bashrc\n' >> /etc/bash.bashrc && \
     ln -s /etc/bash.bashrc /etc/bashrc
