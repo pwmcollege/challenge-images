@@ -28,5 +28,7 @@ gunicorn --daemon
 until curl -fs localhost:80 >/dev/null; do sleep 0.1; done
 EOF
 
-# unify bash experience but still keep suid bits like vanilla lecture image
-RUN ln -s /etc/bash.bashrc /etc/bashrc
+COPY bash.bashrc /opt/bash/bash.bashrc
+
+RUN echo -e '\n[ "$UID" -eq 1000 ] && . /opt/bash/bash.bashrc' >> /etc/bash.bashrc && \
+    ln -s /etc/bash.bashrc /etc/bashrc

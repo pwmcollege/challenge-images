@@ -152,7 +152,10 @@ COPY --chown=0:0 --chmod=774 ./build/fetch_inter.sh /tmp/fetch_inter.sh
 RUN /tmp/fetch_inter.sh 4.1 && \
     rm -f /tmp/fetch_inter.sh
 
-RUN ln -s /etc/bash.bashrc /etc/bashrc && \
+COPY bash.bashrc /opt/bash/bash.bashrc
+
+RUN echo -e '\n[ "$UID" -eq 1000 ] && . /opt/bash/bash.bashrc' >> /etc/bash.bashrc && \
+    ln -s /etc/bash.bashrc /etc/bashrc && \
     if id ubuntu; then userdel -f -r ubuntu; fi && \
     chown -R 0:0 /usr/bin /usr/local/bin && \
     find / -xdev -type f -perm -4000 -exec chmod u-s {} \; && \
@@ -164,4 +167,5 @@ RUN ln -s /etc/bash.bashrc /etc/bashrc && \
     ln -s /usr/bin/pip3 /usr/local/bin/pip3
 
 ADD --chown=0:0 --chmod=6755 https://github.com/pwncollege/exec-suid/releases/latest/download/exec-suid /usr/bin/exec-suid
+
 ADD --chown=0:0 --chmod=6755 https://github.com/pwncollege/exec-suid/releases/download/v0.1.5/exec-suid /opt/exec-suid
