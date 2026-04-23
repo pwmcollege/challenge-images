@@ -4,7 +4,7 @@ PROMPT_COMMAND="history -a"
 
 mkdir -p /tmp/.dojo
 
-if [ ! -e "/tmp/.dojo/readme-once" ]; then
+if [ "${HOSTNAME:0:2}" != "vm" ] && [ ! -e "/tmp/.dojo/readme-once" ]; then
     if [ -e "/challenge/README.md" ]; then
         README="/challenge/README.md"
     elif [ -e "/challenge/DESCRIPTION.md" ]; then
