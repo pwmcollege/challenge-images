@@ -17,6 +17,7 @@ on:
           - cve-2025-59825
           - cve-2025-66478
           - cve-2026-24061
+          - cve-2026-31431
           - lecture
           - sudo
           - suid
@@ -35,6 +36,7 @@ jobs:
           - cve-2025-59825
           - cve-2025-66478
           - cve-2026-24061
+          - cve-2026-31431
           - lecture
           - sudo
           - suid

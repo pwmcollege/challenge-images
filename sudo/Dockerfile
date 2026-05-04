@@ -77,11 +77,6 @@ fi
 KERNEL_PATH="/boot/vmlinuz"
 INITRD_PATH="/boot/initrd.img"
 
-DISK_PATH="/tmp/disk.img"
-if [ ! -f "$DISK_PATH" ]; then
-    truncate -s 1G "$DISK_PATH"
-fi
-
 exec /usr/bin/qemu-system-x86_64 \
     -kernel "$KERNEL_PATH" \
     -initrd "$INITRD_PATH" \
@@ -91,8 +86,6 @@ exec /usr/bin/qemu-system-x86_64 \
     -device virtio-9p-pci,fsdev=homefs,mount_tag=homefs \
     -device e1000,netdev=net0 \
     -netdev user,id=net0,hostfwd=tcp::23-:22 \
-    -drive file="$DISK_PATH",format=raw,if=none,id=virtiodisk \
-    -device virtio-blk-pci,drive=virtiodisk \
     -m 2G \
     -smp 2 \
     -nographic \
