@@ -51,9 +51,14 @@ jobs:
       - name: Check if image should be updated
         id: check
         run: |
-          if [ "${{ github.event.inputs.image }}" == "${{ matrix.image }}" ]; then
-            echo "update=true" >> $GITHUB_OUTPUT
-            echo "Manually triggered build and push for ${{ matrix.image }}."
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.image }}" == "${{ matrix.image }}" ]; then
+              echo "update=true" >> $GITHUB_OUTPUT
+              echo "Manually triggered build and push for ${{ matrix.image }}."
+            else
+              echo "update=false" >> $GITHUB_OUTPUT
+              echo "Manual trigger selected ${{ github.event.inputs.image }}, skipping ${{ matrix.image }}."
+            fi
           elif git diff --quiet HEAD~1 -- "${{ matrix.image }}"; then
             echo "update=false" >> $GITHUB_OUTPUT
             echo "No changes detected in ${{ matrix.image }}, skipping."
