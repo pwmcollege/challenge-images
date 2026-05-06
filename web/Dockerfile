@@ -1,4 +1,4 @@
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 ARG CHROME_CHANNEL=stable
 ARG GECKODRIVER_VER=0.36.0
@@ -104,7 +104,7 @@ RUN apt-get update && \
     zstd \
     && rm -rf /var/lib/apt/lists/*
 
-RUN wget -q -O - "https://github.com/mozilla/geckodriver/releases/download/v${GECKODRIVER_VER}/geckodriver-v${GECKODRIVER_VER}-$([ \"$(dpkg --print-architecture)\" = \"arm64\" ] && printf '%s' linux-aarch64 || printf '%s' linux64).tar.gz" | tar xz -C /usr/local/bin
+RUN wget -q -O - "https://github.com/mozilla/geckodriver/releases/download/v${GECKODRIVER_VER}/geckodriver-v${GECKODRIVER_VER}-linux64.tar.gz" | tar xz -C /usr/local/bin
 
 RUN pip install --no-cache-dir --ignore-installed blinker \
     beautifulsoup4 \
