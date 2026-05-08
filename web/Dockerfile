@@ -3,11 +3,12 @@ FROM ubuntu:26.04
 ARG CHROME_CHANNEL=stable
 ARG GECKODRIVER_VER=0.36.0
 
-ENV PYTHONUNBUFFERED=1 \
-    PIP_BREAK_SYSTEM_PACKAGES=1 \
-    DEBIAN_FRONTEND=noninteractive \
-    CHROME_BIN=/usr/bin/chromium \
-    GECKO_BIN=/usr/local/bin/firefox
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+ENV DEBIAN_FRONTEND=noninteractive
+ENV CHROME_BIN=/usr/bin/chromium
+ENV GECKO_BIN=/usr/local/bin/firefox
 
 RUN apt-get update && \
     apt-get install --no-install-recommends -y \
