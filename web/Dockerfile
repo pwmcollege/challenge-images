@@ -130,36 +130,19 @@ RUN pip install --no-cache-dir --ignore-installed blinker \
     requests \
     selenium
 
-RUN umask 077 && \
-    mkdir -p /opt/ca /etc/ssl/private /etc/ssl/certs && \
-    openssl genrsa -out /opt/ca/internalCA.key 4096 && \
-    openssl req -x509 -new -nodes -key /opt/ca/internalCA.key -sha256 -days 3650 \
-    -subj "/CN=Internal CA" \
-    -addext "basicConstraints=critical,CA:TRUE" \
-    -addext "keyUsage=critical,digitalSignature,keyCertSign,cRLSign" \
-    -out /opt/ca/internalCA.crt && \
-    openssl genrsa -out /opt/ca/internal.key.pem 2048 && \
-    openssl req -new -key /opt/ca/internal.key.pem -subj "/CN=cdn.internal" -out /opt/ca/internal.csr.pem && \
-    printf "subjectAltName=DNS:cdn.internal,DNS:challenge.internal\nkeyUsage=digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth" > /opt/ca/san.cnf && \
-    openssl x509 -req -in /opt/ca/internal.csr.pem \
-    -CA /opt/ca/internalCA.crt -CAkey /opt/ca/internalCA.key -CAcreateserial \
-    -out /etc/ssl/certs/internal.cert.pem -days 825 -sha256 \
-    -extfile /opt/ca/san.cnf && \
-    cp /opt/ca/internal.key.pem /etc/ssl/private/internal.key.pem && \
-    cp /opt/ca/internalCA.crt /usr/local/share/ca-certificates/internalCA.crt && \
-    update-ca-certificates && \
-    cat /usr/local/share/ca-certificates/internalCA.crt >> $(python3 -m certifi) && \
-    rm -rf /opt/ca
+COPY --chown=0:0 --chmod=554 ./setup_ssl_certs.sh /tmp/setup_ssl_certs.sh
+RUN /tmp/setup_ssl_certs.sh && \
+    rm -f /tmp/setup_ssl_certs.sh
 
 ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
     SSL_CERT_DIR=/etc/ssl/certs \
     REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
-COPY --chown=0:0 --chmod=554 ./build/cdn /opt/cdn/server
-COPY --chown=0:0 --chmod=444 ./build/mime_overrides.json /opt/cdn/mime_overrides.json
+COPY --chown=0:0 --chmod=554 ./cdn/server /opt/cdn/server
+COPY --chown=0:0 --chmod=444 ./cdn/mime_overrides.json /opt/cdn/mime_overrides.json
 ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4 /opt/cdn/@tailwindcss/browser@4
 
-COPY --chown=0:0 --chmod=774 ./build/fetch_inter.sh /tmp/fetch_inter.sh
+COPY --chown=0:0 --chmod=774 ./cdn/fetch_inter.sh /tmp/fetch_inter.sh
 RUN /tmp/fetch_inter.sh 4.1 && \
     rm -f /tmp/fetch_inter.sh
 
@@ -180,5 +163,3 @@ RUN printf '\n[ "$UID" -eq 1000 ] && . /opt/bash/bash.bashrc\n' >> /etc/bash.bas
     ln -s /usr/bin/pip3 /usr/local/bin/pip3
 
 ADD --chown=0:0 --chmod=6755 https://github.com/pwncollege/exec-suid/releases/latest/download/exec-suid /usr/bin/exec-suid
-
-ADD --chown=0:0 --chmod=6755 https://github.com/pwncollege/exec-suid/releases/download/v0.1.5/exec-suid /opt/exec-suid
