@@ -76,10 +76,20 @@ RUN apt-get update && \
     neovim \
     netcat-openbsd \
     nftables \
+    nginx \
     nmap \
     openssl \
     p7zip-full \
     parallel \
+    php-cli \
+    php-common \
+    php-curl \
+    php-fpm \
+    php-mbstring \
+    php-mysql \
+    php-sqlite3 \
+    php-xml \
+    php-zip \
     psmisc \
     pv \
     python3 \
