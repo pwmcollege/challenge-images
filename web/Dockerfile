@@ -28,6 +28,10 @@ Pin: version 1:1snap*
 Pin-Priority: -1
 EOF
 
+RUN curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | \
+    gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor && \
+    echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" > /etc/apt/sources.list.d/mongodb-org-8.0.list
+
 RUN apt-get update && \
     apt-get install -y \
     bat \
@@ -71,6 +75,8 @@ RUN apt-get update && \
     lsof \
     lz4 \
     moreutils \
+    mongodb-org \
+    mysql-server \
     ncurses-bin \
     ncurses-term \
     neovim \
@@ -86,10 +92,13 @@ RUN apt-get update && \
     php-curl \
     php-fpm \
     php-mbstring \
+    php-mongodb \
     php-mysql \
+    php-pgsql \
     php-sqlite3 \
     php-xml \
     php-zip \
+    postgresql \
     psmisc \
     pv \
     python3 \
