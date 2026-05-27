@@ -12,8 +12,15 @@ ENV GECKO_BIN=/usr/local/bin/firefox
 
 RUN apt-get update && \
     apt-get install --no-install-recommends -y \
+    curl \
+    gnupg \
     software-properties-common \
     && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://pgp.mongodb.com/server-8.0.asc | \
+    gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor && \
+    echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | \
+    tee /etc/apt/sources.list.d/mongodb-org-8.0.list
 
 RUN add-apt-repository -y ppa:mozillateam/ppa && \
     add-apt-repository -y ppa:xtradeb/apps
@@ -28,10 +35,6 @@ Pin: version 1:1snap*
 Pin-Priority: -1
 EOF
 
-RUN curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | \
-    gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor && \
-    echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" > /etc/apt/sources.list.d/mongodb-org-8.0.list
-
 RUN apt-get update && \
     apt-get install -y \
     bat \
@@ -41,7 +44,6 @@ RUN apt-get update && \
     chromium \
     chromium-driver \
     cmake \
-    curl \
     dnsutils \
     fd-find \
     file \
@@ -49,7 +51,6 @@ RUN apt-get update && \
     firefox-esr \
     fish \
     git \
-    gnupg \
     htop \
     iproute2 \
     iputils-ping \
