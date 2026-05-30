@@ -44,6 +44,7 @@ RUN apt-get update && \
     chromium \
     chromium-driver \
     cmake \
+    default-libmysqlclient-dev \
     dnsutils \
     fd-find \
     file \
@@ -66,6 +67,7 @@ RUN apt-get update && \
     libgtk-3-0t64 \
     libnss3 \
     libpcap-dev \
+    libpq-dev \
     libssl-dev \
     libx11-6 \
     libxcomposite1 \
@@ -99,6 +101,7 @@ RUN apt-get update && \
     php-sqlite3 \
     php-xml \
     php-zip \
+    pkg-config \
     postgresql \
     psmisc \
     pv \
@@ -135,8 +138,11 @@ RUN pip install --no-cache-dir --ignore-installed blinker \
     gunicorn \
     html5lib \
     ipython \
+    mysqlclient \
     psutil \
+    psycopg2 \
     pycryptodome \
+    pymongo \
     requests \
     selenium
 
