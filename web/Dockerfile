@@ -51,6 +51,8 @@ RUN apt-get update && \
     firefox \
     firefox-esr \
     fish \
+    fortune-mod \
+    fortunes \
     git \
     htop \
     iproute2 \
