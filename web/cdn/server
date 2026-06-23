@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import io
-import json
 import mimetypes
 import os
 import stat
@@ -12,15 +11,8 @@ CDN_ROOT = "/opt/cdn"
 CDN_HOST = os.getenv("CDN_HOST", "cdn.internal")
 CDN_PORT = int(os.getenv("CDN_PORT", "443"))
 ENFORCE_HOST = os.path.exists("/challenge/.cdn_enforce_host")
-MIME_OVERRIDES_PATH = os.getenv("MIME_OVERRIDES", "/opt/cdn/mime_overrides.json")
 
 app = Flask(__name__)
-
-try:
-    with open(MIME_OVERRIDES_PATH, "r") as f:
-        MIME_OVERRIDES = json.load(f)
-except Exception:
-    MIME_OVERRIDES = {}
 
 mimetypes.add_type("text/css", ".css")
 mimetypes.add_type("application/javascript", ".js")
@@ -102,17 +94,13 @@ def options(url_path):
 
 @app.get("/<path:url_path>")
 def serve(url_path):
-    if url_path.lstrip("/").startswith("mime_overrides"):
-        abort(404)
-
     try:
         f = serve_file(CDN_ROOT, url_path)
     except (FileNotFoundError, OSError):
         abort(404)
 
     guessed_type, _ = mimetypes.guess_type(url_path)
-    forced_type = MIME_OVERRIDES.get(url_path.lstrip("/"))
-    content_type = forced_type or guessed_type or "application/octet-stream"
+    content_type = guessed_type or "application/octet-stream"
 
     resp = make_response(
         send_file(

@@ -155,14 +155,9 @@ ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
     REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
 COPY --chown=0:0 --chmod=554 ./cdn/server /opt/cdn/server
-COPY --chown=0:0 --chmod=444 ./cdn/mime_overrides.json /opt/cdn/mime_overrides.json
 
-
-ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4/dist/index.global.min.js /opt/tailwind/tailwind.min.js
-ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/lucide@1/dist/umd/lucide.min.js /opt/lucide/lucide.min.js
-RUN mkdir -p /opt/cdn/@tailwindcss && \
-    ln /opt/tailwind/tailwind.min.js /opt/cdn/@tailwindcss/browser@4 && \
-    ln /opt/lucide/lucide.min.js /opt/cdn/lucide@latest
+ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4/dist/index.global.min.js /opt/cdn/tailwind/tailwind.min.js
+ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/lucide@1/dist/umd/lucide.min.js /opt/cdn/lucide/lucide.min.js
 
 COPY --chown=0:0 --chmod=774 ./cdn/fetch_inter.sh /tmp/fetch_inter.sh
 RUN /tmp/fetch_inter.sh 4.1 && \
