@@ -1,3 +1,4 @@
 {
-    "@tailwindcss/browser@4": "application/javascript"
+    "@tailwindcss/browser@4": "application/javascript",
+    "lucide@latest": "application/javascript"
 }
