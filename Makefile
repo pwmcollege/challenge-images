@@ -3,6 +3,7 @@ PLATFORM ?= linux/amd64
 VERSION ?=
 PUSH ?= 0
 OUTPUT := $(if $(filter 1 true yes,$(PUSH)),--push,--load)
+FONT_CACHE_BUST ?= $(shell date +%s)
 
 .DEFAULT_GOAL := all
 .PHONY: all $(IMAGES)
@@ -13,4 +14,4 @@ $(IMAGES):
 	rm -f "$@/bash.bashrc"
 	cp bash.bashrc "$@/"
 	trap 'rm -f "$@/bash.bashrc"' EXIT INT TERM; \
-	docker buildx build --platform "$(PLATFORM)" -t "$(if $(USERNAME),$(USERNAME)/,)$@$(if $(VERSION),:$(VERSION),)" $(OUTPUT) "$@"
+	docker buildx build --platform "$(PLATFORM)" $(if $(filter web,$@),--build-arg "FONT_CACHE_BUST=$(FONT_CACHE_BUST)") -t "$(if $(USERNAME),$(USERNAME)/,)$@$(if $(VERSION),:$(VERSION),)" $(OUTPUT) "$@"

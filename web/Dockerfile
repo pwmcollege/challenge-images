@@ -160,10 +160,13 @@ COPY --chown=0:0 --chmod=554 ./cdn/server /opt/cdn/server
 
 ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4/dist/index.global.min.js /opt/cdn/tailwind/tailwind.min.js
 ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/lucide@1/dist/umd/lucide.min.js /opt/cdn/lucide/lucide.min.js
+ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/xterm@latest/css/xterm.min.css /opt/cdn/xterm/xterm.css
+ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/xterm@latest/lib/xterm.min.js /opt/cdn/xterm/xterm.js
+ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/xterm-addon-fit@latest/lib/xterm-addon-fit.min.js /opt/cdn/xterm/xterm-addon-fit.js
 
-COPY --chown=0:0 --chmod=774 ./cdn/fetch_inter.sh /tmp/fetch_inter.sh
-RUN /tmp/fetch_inter.sh 4.1 && \
-    rm -f /tmp/fetch_inter.sh
+ARG FONT_CACHE_BUST
+COPY --chown=0:0 --chmod=554 ./cdn/fetch_fontsource_fonts.sh /tmp/
+RUN /tmp/fetch_fontsource_fonts.sh
 
 COPY --chown=0:0 --from=pwmcollege/glow /usr/local/bin/glow /usr/local/bin/glow
 
