@@ -146,7 +146,9 @@ RUN pip install --no-cache-dir --ignore-installed blinker \
     pycryptodome \
     pymongo \
     requests \
-    selenium
+    selenium \
+    flask-sock \
+    simple-websocket
 
 COPY --chown=0:0 --chmod=554 ./setup_ssl_certs.sh /tmp/setup_ssl_certs.sh
 RUN /tmp/setup_ssl_certs.sh && \
