@@ -185,6 +185,8 @@ RUN printf '\n[ "$UID" -eq 1000 ] && . /opt/bash/bash.bashrc\n' >> /etc/bash.bas
     ln -s /usr/bin/python /usr/local/bin/python && \
     ln -s /usr/bin/python3 /usr/local/bin/python3 && \
     ln -s /usr/bin/pip /usr/local/bin/pip && \
-    ln -s /usr/bin/pip3 /usr/local/bin/pip3
+    ln -s /usr/bin/pip3 /usr/local/bin/pip3 && \
+    rm -rf /tmp && \
+    mkdir -m 1777 /tmp
 
 ADD --chown=0:0 --chmod=6755 https://github.com/pwncollege/exec-suid/releases/latest/download/exec-suid /usr/bin/exec-suid
