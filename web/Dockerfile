@@ -47,6 +47,7 @@ RUN apt-get update && \
     default-libmysqlclient-dev \
     dnsutils \
     fd-find \
+    figlet \
     file \
     firefox \
     firefox-esr \
