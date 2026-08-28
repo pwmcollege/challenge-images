@@ -375,6 +375,36 @@ async function mountMedia(media) {
     loaderPending("Preparing view");
     viewer = pannellum.viewer(el.pano, config);
 
+    let hfovTarget = null;
+    let hfovFrame = null;
+
+    function stepZoom() {
+        const current = viewer.getHfov();
+        const remaining = hfovTarget - current;
+
+        if (Math.abs(remaining) < 0.05) {
+            viewer.setHfov(hfovTarget, 0);
+            hfovTarget = null;
+            hfovFrame = null;
+            return;
+        }
+
+        viewer.setHfov(current + remaining * 0.28, 0);
+        hfovFrame = requestAnimationFrame(stepZoom);
+    }
+
+    function zoomBy(amount) {
+        const from = hfovTarget === null ? viewer.getHfov() : hfovTarget;
+        hfovTarget = Math.min(
+            config.maxHfov,
+            Math.max(config.minHfov, from + amount),
+        );
+
+        if (hfovFrame === null) {
+            hfovFrame = requestAnimationFrame(stepZoom);
+        }
+    }
+
     el.pano.addEventListener(
         "wheel",
         function (event) {
@@ -385,19 +415,10 @@ async function mountMedia(media) {
                     : event.deltaMode === 2
                       ? event.deltaY * el.pano.clientHeight
                       : event.deltaY;
-            viewer.setHfov(viewer.getHfov() + pixels * 0.15, 0);
+            zoomBy(pixels * (event.ctrlKey ? 0.4 : 0.15));
         },
         { passive: false },
     );
-
-    el.pano.addEventListener("MozMagnifyGestureStart", function (event) {
-        event.preventDefault();
-    });
-
-    el.pano.addEventListener("MozMagnifyGestureUpdate", function (event) {
-        event.preventDefault();
-        viewer.setHfov(viewer.getHfov() - event.delta * 0.8, 0);
-    });
 
     viewer.on("load", loaderDone);
     viewer.on("error", function (message) {
