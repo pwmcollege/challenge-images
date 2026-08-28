@@ -1,10 +1,11 @@
-FROM ubuntu:22.04 AS dev-kernel
+FROM ubuntu:20.04 AS dev-kernel
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     dbus \
+    gnupg \
     iproute2 \
     initramfs-tools \
     kmod \
@@ -187,7 +188,7 @@ SHELL ["/bin/bash", "-ceov", "pipefail"]
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LC_CTYPE=C.UTF-8
 
-ARG NODE_VER=24
+ARG NODE_VER=26
 
 RUN <<EOF
     rm -f /etc/apt/apt.conf.d/docker-clean
@@ -195,6 +196,10 @@ RUN <<EOF
     (set +o pipefail; yes | unminimize)
 
     curl -fsSL https://deb.nodesource.com/setup_${NODE_VER}.x | bash -
+
+    curl -fsSLO https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb
+    dpkg -i packages-microsoft-prod.deb
+    rm packages-microsoft-prod.deb
 
     echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
     curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
@@ -226,7 +231,7 @@ RUN apt-get update && \
     binutils \
     bpftrace \
     bsd-mailx \
-    bsdextrautils \
+    bsdmainutils \
     busybox \
     bzip2 \
     cabal-install \
@@ -253,7 +258,6 @@ RUN apt-get update && \
     distcc \
     dmidecode \
     dmsetup \
-    dnf \
     dnsutils \
     docker.io \
     dosbox \
@@ -316,8 +320,8 @@ RUN apt-get update && \
     linux-tools-generic \
     logsave \
     ltrace \
-    lua5.4 \
-    mailcap \
+    lua5.3 \
+    mime-support \
     make \
     man-db \
     mariadb-client \
@@ -325,7 +329,7 @@ RUN apt-get update && \
     minicom \
     monitoring-plugins \
     monitoring-plugins-basic \
-    monitoring-plugins-contrib \
+    nagios-plugins-contrib \
     monitoring-plugins-standard \
     mosquitto \
     mtr-tiny \
@@ -435,7 +439,7 @@ RUN apt-get update && \
     zip \
     zsh \
     zypper && \
-    ln -sf /usr/libexec/man-db/zsoelim /usr/bin/zsoelim && \
+    if [ -e /usr/libexec/man-db/zsoelim ]; then ln -sf /usr/libexec/man-db/zsoelim /usr/bin/zsoelim; fi && \
     ln -sf /usr/bin/torsocks /usr/bin/torify && \
     ln -sf /usr/bin/pdb3 /usr/bin/pdb && \
     ln -sf /usr/bin/resolvectl /usr/bin/systemd-resolve && \
@@ -473,15 +477,15 @@ RUN <<EOF
     ln -sf "$easyi" /usr/bin/easy_install
 
     CHEF_VERSION=$(curl -fsSL https://raw.githubusercontent.com/chef/chef-workstation/main/Dockerfile | sed -n 's/^ARG VERSION=\(.*\)/\1/p')
-    curl -fSL "https://packages.chef.io/files/stable/chef-workstation/${CHEF_VERSION}/ubuntu/22.04/chef-workstation_${CHEF_VERSION}-1_amd64.deb" -o chef.deb
+    curl -fSL "https://packages.chef.io/files/stable/chef-workstation/${CHEF_VERSION}/ubuntu/20.04/chef-workstation_${CHEF_VERSION}-1_amd64.deb" -o chef.deb
     dpkg -i chef.deb
 
     curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
     install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 
     cd /opt
-    curl -fSL "https://julialang-s3.julialang.org/bin/linux/x64/1.12/julia-1.12.4-linux-x86_64.tar.gz" | tar -xzf -
-    mv /opt/julia-1.12.4/ /opt/julia/
+    curl -fSL "https://julialang-s3.julialang.org/bin/linux/x64/1.12/julia-1.12.7-linux-x86_64.tar.gz" | tar -xzf -
+    mv /opt/julia-1.12.7/ /opt/julia/
     ln -s /opt/julia/bin/julia /usr/local/bin/julia
 
     rm -rf /tmp/*
@@ -490,7 +494,7 @@ EOF
 RUN <<EOF
     ln -s /lib64/ld-linux-x86-64.so.2 /usr/bin/ld.so
 
-    pip3 install pykickstart
+    pip3 install 'pykickstart==3.64'
 
     gem install fpm
 
