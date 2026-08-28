@@ -1,0 +1,15 @@
+#!/bin/sh
+
+[ -r /run/dojo/sys/workspace/privileged ] && [ "$(head -c1 /run/dojo/sys/workspace/privileged)" = "1" ] && kill 1
+
+rm -f /challenge/.init
+
+find /challenge -type d -exec chmod 0700 {} +
+find /challenge -type f -exec chmod 0600 {} +
+
+cd /opt/geosint
+
+gunicorn --daemon
+until curl -fs localhost:80/api/state >/dev/null; do sleep 0.1; done
+
+rm /flag

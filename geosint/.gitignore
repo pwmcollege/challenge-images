@@ -1,0 +1,4 @@
+challenge/
+static/vendor/
+__pycache__/
+*.pyc
