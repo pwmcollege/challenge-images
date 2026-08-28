@@ -452,7 +452,6 @@ RUN apt-get update && \
 
 COPY --chmod=755 <<'EOF' /usr/bin/basenc
 #!/bin/bash
-# Ubuntu 20.04's coreutils predates basenc.  Support its GTFOBins base64 mode.
 set -euo pipefail
 
 decode=0
@@ -473,8 +472,6 @@ EOF
 
 COPY --chmod=755 <<'EOF' /usr/bin/dnf
 #!/bin/bash
-# Ubuntu 20.04 has no dnf package.  Implement dnf's local-RPM install path,
-# which is the behavior used by the GTFOBins challenge.
 set -euo pipefail
 
 if [ "${1:-}" != install ]; then
@@ -559,8 +556,6 @@ EOF
 
 COPY --chmod=755 <<'EOF' /usr/bin/ansible-test
 #!/bin/bash
-# ansible-test requires a collection checkout; provide one for the standalone
-# command used by this challenge.
 set -euo pipefail
 cd /opt/ansible-test/project/ansible_collections/pwncollege/sudo
 exec env PYTHONPATH=/opt/ansible-test /opt/ansible-test/bin/ansible-test "$@"
