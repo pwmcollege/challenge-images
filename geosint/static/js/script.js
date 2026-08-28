@@ -351,6 +351,7 @@ async function mountMedia(media) {
     const config = {
         type: media.type,
         autoLoad: true,
+        mouseZoom: false,
         showZoomCtrl: false,
         showFullscreenCtrl: false,
         compass: false,
@@ -373,6 +374,31 @@ async function mountMedia(media) {
 
     loaderPending("Preparing view");
     viewer = pannellum.viewer(el.pano, config);
+
+    el.pano.addEventListener(
+        "wheel",
+        function (event) {
+            event.preventDefault();
+            const pixels =
+                event.deltaMode === 1
+                    ? event.deltaY * 16
+                    : event.deltaMode === 2
+                      ? event.deltaY * el.pano.clientHeight
+                      : event.deltaY;
+            viewer.setHfov(viewer.getHfov() + pixels * 0.15, 0);
+        },
+        { passive: false },
+    );
+
+    el.pano.addEventListener("MozMagnifyGestureStart", function (event) {
+        event.preventDefault();
+    });
+
+    el.pano.addEventListener("MozMagnifyGestureUpdate", function (event) {
+        event.preventDefault();
+        viewer.setHfov(viewer.getHfov() - event.delta * 0.8, 0);
+    });
+
     viewer.on("load", loaderDone);
     viewer.on("error", function (message) {
         loaderFailed(String(message));

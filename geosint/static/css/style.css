@@ -67,6 +67,7 @@ svg {
 }
 
 #pano {
+    touch-action: none;
     position: absolute;
     inset: 0;
     z-index: 1;
