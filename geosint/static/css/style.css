@@ -725,7 +725,7 @@ body.no-hud #pano .leaflet-top.leaflet-left {
     left: 0;
     right: 0;
     bottom: 0;
-    height: 96px;
+    height: 52px;
     z-index: 290;
     pointer-events: none;
 }
