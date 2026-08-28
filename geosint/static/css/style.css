@@ -785,8 +785,7 @@ body.no-hud #pano .leaflet-top.leaflet-left {
     z-index: 300;
     display: flex;
     align-items: center;
-    height: 48px;
-    padding: 0 14px;
+    padding: 0 14px 10px;
     color: var(--text);
     font-size: 11px;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);

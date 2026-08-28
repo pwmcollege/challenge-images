@@ -14,7 +14,6 @@ let photoFitting = false;
 
 export async function mountMedia(media) {
     el.panoControls.hidden = media.kind !== "pano";
-    el.modeToggle.hidden = media.kind !== "pano";
 
     if (media.kind === "image") {
         const source = await fetchMedia(media.url, loaderProgress);

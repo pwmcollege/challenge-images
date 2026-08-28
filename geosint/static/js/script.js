@@ -1,4 +1,11 @@
-import { basemap, createPin, lineBetween, pinAt, revealLayer } from "./basemap.js";
+import {
+    basemap,
+    createPin,
+    lineBetween,
+    mapGestures,
+    pinAt,
+    revealLayer,
+} from "./basemap.js";
 import { el, renderIcons, setIcon, toast } from "./dom.js";
 import { offsetReadout, parseCoordinates } from "./geo.js";
 import { loaderFailed } from "./loader.js";
@@ -338,6 +345,7 @@ function closeCurtain() {
 
 (async function main() {
     guessMap = await basemap(el.map);
+    mapGestures(guessMap, el.map);
     guessMap.on("click", function (event) {
         setGuess(event.lngLat.wrap());
     });

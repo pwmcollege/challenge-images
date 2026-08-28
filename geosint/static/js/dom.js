@@ -13,7 +13,6 @@ export const el = {
     panoIn: document.getElementById("btn-pano-in"),
     panoOut: document.getElementById("btn-pano-out"),
     panoControls: document.querySelector(".pano-controls"),
-    modeToggle: document.getElementById("btn-mode"),
     loader: document.getElementById("loader"),
     loaderTitle: document.getElementById("loader-title"),
     loaderDetail: document.getElementById("loader-detail"),
@@ -37,7 +36,11 @@ export function renderIcons(root) {
 }
 
 export function setIcon(button, name) {
-    button.innerHTML = '<i data-lucide="' + name + '" aria-hidden="true"></i>';
+    const icon = document.createElement("i");
+
+    icon.dataset.lucide = name;
+    icon.setAttribute("aria-hidden", "true");
+    button.replaceChildren(icon);
     renderIcons(button);
 }
 

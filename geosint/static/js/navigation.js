@@ -10,6 +10,8 @@ const panFriction = 0.9;
 
 let navMode = null;
 
+const modeListeners = [];
+
 export function panMode() {
     if (navMode === null) {
         try {
@@ -23,11 +25,19 @@ export function panMode() {
 
 function setPanMode(next) {
     navMode = next ? "pan" : "zoom";
+    modeListeners.forEach(function (listener) {
+        listener(panMode());
+    });
     try {
         localStorage.setItem("pano-nav", navMode);
     } catch (error) {
         return;
     }
+}
+
+export function onModeChange(listener) {
+    modeListeners.push(listener);
+    listener(panMode());
 }
 
 function glide(step, friction) {
