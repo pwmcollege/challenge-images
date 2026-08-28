@@ -238,6 +238,21 @@ body.map-hidden #mapdock {
     pointer-events: none;
 }
 
+#btn-mode {
+    position: absolute;
+    top: 60px;
+    right: 14px;
+    z-index: 350;
+}
+
+body.no-hud #btn-mode {
+    top: 14px;
+}
+
+#btn-mode[aria-pressed="true"] {
+    color: var(--text);
+}
+
 #btn-map-show {
     position: absolute;
     right: 14px;

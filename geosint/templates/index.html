@@ -227,6 +227,15 @@
                 <div></div>
             </div>
 
+            <button
+                id="btn-mode"
+                class="glyph"
+                title="Toggle navigation mode"
+                aria-label="Toggle navigation mode"
+            >
+                <i data-lucide="hand" aria-hidden="true"></i>
+            </button>
+
             <footer id="credits">
                 Basemap &copy; CARTO &middot; &copy; OpenStreetMap contributors
                 (ODbL) &middot; MapLibre (BSD-3) &middot; Leaflet (BSD-2)
@@ -238,6 +247,6 @@
         <script src="{{ asset('vendor/maplibre/maplibre-gl.js') }}"></script>
         <script src="{{ asset('vendor/pannellum/pannellum.js') }}"></script>
         <script src="{{ asset('vendor/lucide/lucide.min.js') }}"></script>
-        <script src="{{ asset('js/script.js') }}"></script>
+        <script type="module" src="{{ asset('js/script.js') }}"></script>
     </body>
 </html>

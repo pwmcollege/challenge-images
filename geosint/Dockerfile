@@ -48,6 +48,10 @@ RUN mkdir -p /opt/geosint/static/vendor/maplibre && \
     curl -fsSL -o /opt/geosint/static/vendor/maplibre/maplibre-gl.css \
     https://unpkg.com/maplibre-gl@5.9.0/dist/maplibre-gl.css
 
+RUN mkdir -p /opt/geosint/static/vendor/use-gesture && \
+    curl -fsSL -o /opt/geosint/static/vendor/use-gesture/use-gesture.mjs \
+    https://esm.sh/@use-gesture/vanilla@10.3.1/es2022/vanilla.bundle.mjs
+
 RUN mkdir -p /opt/geosint/static/vendor/lucide && \
     curl -fsSL -o /opt/geosint/static/vendor/lucide/lucide.min.js \
     https://unpkg.com/lucide@1.34.0/dist/umd/lucide.min.js && \

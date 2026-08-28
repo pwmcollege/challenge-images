@@ -188,6 +188,8 @@ def distance_km(lat, lon):
 def cache_policy(response):
     if request.path.startswith(("/api/", "/media/")):
         response.headers["Cache-Control"] = "no-store, max-age=0"
+    elif request.path.startswith("/static/js/"):
+        response.headers["Cache-Control"] = "no-cache"
     elif request.path.startswith("/static/"):
         response.headers["Cache-Control"] = "public, max-age=3600"
     else:
