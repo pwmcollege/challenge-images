@@ -1,4 +1,4 @@
-IMAGES := capabilities cve-2021-3156 cve-2023-22809 cve-2025-32463 cve-2025-59825 cve-2025-66478 cve-2026-24061 lecture sudo suid web
+IMAGES := capabilities cve-2021-3156 cve-2023-22809 cve-2025-32463 cve-2025-59825 cve-2025-66478 cve-2026-24061 cve-2026-31431 geosint lecture sudo suid web
 PLATFORM ?= linux/amd64
 VERSION ?=
 PUSH ?= 0
