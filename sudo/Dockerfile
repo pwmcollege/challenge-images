@@ -439,13 +439,67 @@ RUN apt-get update && \
     zip \
     zsh \
     zypper && \
-    if [ -e /usr/libexec/man-db/zsoelim ]; then ln -sf /usr/libexec/man-db/zsoelim /usr/bin/zsoelim; fi && \
+    for zsoelim in /usr/libexec/man-db/zsoelim /usr/lib/man-db/zsoelim; do \
+        if [ -x "$zsoelim" ]; then ln -sf "$zsoelim" /usr/bin/zsoelim; break; fi; \
+    done && \
+    if [ -x /usr/sbin/tcpdump ]; then ln -sf /usr/sbin/tcpdump /usr/bin/tcpdump; fi && \
     ln -sf /usr/bin/torsocks /usr/bin/torify && \
     ln -sf /usr/bin/pdb3 /usr/bin/pdb && \
     ln -sf /usr/bin/resolvectl /usr/bin/systemd-resolve && \
     rm -f /usr/sbin/policy-rc.d && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+COPY --chmod=755 <<'EOF' /usr/bin/basenc
+#!/bin/bash
+# Ubuntu 20.04's coreutils predates basenc.  Support its GTFOBins base64 mode.
+set -euo pipefail
+
+decode=0
+files=()
+for argument in "$@"; do
+    case "$argument" in
+        --base64) ;;
+        -d|--decode) decode=1 ;;
+        *) files+=("$argument") ;;
+    esac
+done
+
+if [ "$decode" -eq 1 ]; then
+    exec /usr/bin/base64 --decode "${files[@]}"
+fi
+exec /usr/bin/base64 "${files[@]}"
+EOF
+
+COPY --chmod=755 <<'EOF' /usr/bin/dnf
+#!/bin/bash
+# Ubuntu 20.04 has no dnf package.  Implement dnf's local-RPM install path,
+# which is the behavior used by the GTFOBins challenge.
+set -euo pipefail
+
+if [ "${1:-}" != install ]; then
+    exec /usr/bin/rpm "$@"
+fi
+shift
+
+packages=()
+for argument in "$@"; do
+    case "$argument" in
+        -y|--assumeyes|--disablerepo=*|--setopt=*) ;;
+        *.rpm) packages+=("$argument") ;;
+        *)
+            echo "dnf compatibility mode only supports local RPM installs" >&2
+            exit 2
+            ;;
+    esac
+done
+
+[ "${#packages[@]}" -gt 0 ] || {
+    echo "dnf: no RPM package specified" >&2
+    exit 2
+}
+exec /usr/bin/rpm -Uvh --nodeps "${packages[@]}"
+EOF
 
 RUN passwd -d root && \
     mkdir -p /home/hacker && \
@@ -495,10 +549,21 @@ RUN <<EOF
     ln -s /lib64/ld-linux-x86-64.so.2 /usr/bin/ld.so
 
     pip3 install 'pykickstart==3.64'
+    ANSIBLE_SKIP_CONFLICT_CHECK=1 pip3 install --no-cache-dir --target /opt/ansible-test 'ansible-core==2.12.10'
+    mkdir -p /opt/ansible-test/project/ansible_collections/pwncollege/sudo
 
     gem install fpm
 
     npm i -g @openai/codex
+EOF
+
+COPY --chmod=755 <<'EOF' /usr/bin/ansible-test
+#!/bin/bash
+# ansible-test requires a collection checkout; provide one for the standalone
+# command used by this challenge.
+set -euo pipefail
+cd /opt/ansible-test/project/ansible_collections/pwncollege/sudo
+exec env PYTHONPATH=/opt/ansible-test /opt/ansible-test/bin/ansible-test "$@"
 EOF
 
 COPY --chown=0:0 --from=pwmcollege/glow /usr/local/bin/glow /usr/local/bin/glow
