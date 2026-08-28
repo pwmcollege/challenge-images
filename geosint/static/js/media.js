@@ -132,8 +132,8 @@ export async function mountMedia(media) {
         scaleBounds: { min: 1, max: config.maxHfov / config.minHfov },
         pan: function (dx, dy) {
             const perPixel = viewer.getHfov() / el.pano.clientWidth;
-            viewer.setYaw(viewer.getYaw() + dx * perPixel, 0);
-            viewer.setPitch(viewer.getPitch() - dy * perPixel, 0);
+            viewer.setYaw(viewer.getYaw() - dx * perPixel, 0);
+            viewer.setPitch(viewer.getPitch() + dy * perPixel, 0);
         },
         zoom: function (scale, origin) {
             const rect = el.pano.getBoundingClientRect();
