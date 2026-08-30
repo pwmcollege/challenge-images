@@ -17,6 +17,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     ca-certificates \
     curl \
     imagemagick \
+    libheif-plugin-libde265 \
     python3 \
     python3-pip \
     unzip

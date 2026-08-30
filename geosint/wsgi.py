@@ -5,6 +5,7 @@ import math
 import mimetypes
 import os
 import secrets
+import subprocess
 import threading
 import time
 from pathlib import Path
@@ -20,6 +21,8 @@ LAT = float(CONFIG["lat"])
 LON = float(CONFIG["lon"])
 TOLERANCE = float(CONFIG.get("tolerance_km", 1))
 MEDIA_ID = secrets.token_hex(16)
+
+WEB_TYPES = {"JPEG": ".jpg", "PNG": ".png", "GIF": ".gif", "WEBP": ".webp"}
 
 lock = threading.Lock()
 solved = False
@@ -102,6 +105,86 @@ def media_files():
     return sorted(path for path in MEDIA.iterdir() if path.is_file())
 
 
+def probe(path):
+    try:
+        done = subprocess.run(
+            [
+                "/usr/bin/identify",
+                "-quiet",
+                "-format",
+                "%m %w %h %[opaque] %[orientation]",
+                f"{path}[0]",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+    fields = done.stdout.split()
+    if done.returncode != 0 or len(fields) != 5:
+        return None
+
+    return {
+        "format": fields[0],
+        "width": int(fields[1]),
+        "height": int(fields[2]),
+        "alpha": fields[3] != "True",
+        "upright": fields[4] in ("TopLeft", "Undefined"),
+    }
+
+
+def transcode(path, target):
+    try:
+        done = subprocess.run(
+            [
+                "/usr/bin/magick",
+                "-quiet",
+                f"{path}[0]",
+                "-auto-orient",
+                "-strip",
+                f"{target}:-",
+            ],
+            capture_output=True,
+            timeout=300,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+    return done.stdout if done.returncode == 0 and done.stdout else None
+
+
+def prepare(path):
+    data = path.read_bytes()
+    info = probe(path)
+
+    if data[:2] == b"\xff\xd8":
+        native = ".jpg"
+    elif data[:8] == b"\x89PNG\r\n\x1a\n":
+        native = ".png"
+    else:
+        native = None
+
+    if native and (info is None or info["upright"]):
+        return native, strip(data)
+
+    if info is None:
+        raise RuntimeError(f"cannot identify {path.name}")
+
+    if info["format"] in WEB_TYPES:
+        target = info["format"]
+    else:
+        target = "PNG" if info["alpha"] else "JPEG"
+
+    output = transcode(path, target.lower())
+
+    if output is None:
+        raise RuntimeError(f"cannot convert {path.name}")
+
+    return WEB_TYPES[target], output
+
+
 def detect_kind():
     if (MEDIA / "multires").is_dir():
         return "multires"
@@ -111,7 +194,12 @@ def detect_kind():
         return "cubemap"
 
     if len(files) == 1:
-        size = image_size(files[0].read_bytes())
+        info = probe(files[0])
+        size = (
+            (info["width"], info["height"])
+            if info
+            else image_size(files[0].read_bytes())
+        )
         if size and abs(size[0] - 2 * size[1]) <= 2:
             return "equirectangular"
 
@@ -123,12 +211,19 @@ def served_media():
         return {}
 
     files = media_files()
+
     if KIND == "cubemap":
         faces = {path.stem.lower(): path for path in files}
-        return {f"{face}{faces[face].suffix}": faces[face] for face in "fbudlr"}
+        served = {}
 
-    source = files[0]
-    return {("image" if KIND == "image" else "pano") + source.suffix: source}
+        for face in "fbudlr":
+            suffix, data = prepare(faces[face])
+            served[face + suffix] = data
+
+        return served
+
+    suffix, data = prepare(files[0])
+    return {("image" if KIND == "image" else "pano") + suffix: data}
 
 
 KIND = CONFIG.get("kind") or detect_kind()
@@ -264,19 +359,23 @@ def media_file(media_id, name):
     if media_id != MEDIA_ID:
         abort(404)
 
+    mimetype = mimetypes.guess_type(name)[0] or "application/octet-stream"
+
     if KIND == "multires":
         if not name.startswith("multires/"):
             abort(404)
+
         path = (MEDIA / name).resolve()
         if not path.is_file() or MEDIA.resolve() not in path.parents:
             abort(404)
-    else:
-        path = SERVED.get(name)
-        if path is None:
-            abort(404)
 
-    mimetype = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-    return Response(strip(path.read_bytes()), mimetype=mimetype)
+        return Response(strip(path.read_bytes()), mimetype=mimetype)
+
+    data = SERVED.get(name)
+    if data is None:
+        abort(404)
+
+    return Response(data, mimetype=mimetype)
 
 
 application = app
