@@ -125,7 +125,11 @@ export function gestureControls(node, adapter) {
             }
 
             drift.stop();
-            adapter.pan(-state.delta[0], -state.delta[1]);
+            adapter.pan(
+                -state.delta[0],
+                -state.delta[1],
+                Math.hypot(state.delta[0], state.delta[1]),
+            );
         },
         { eventOptions: { passive: false } },
     );
@@ -138,6 +142,10 @@ export function gestureControls(node, adapter) {
             }
 
             state.event.preventDefault();
+
+            if (adapter.input && state.event.type !== "wheel") {
+                adapter.input();
+            }
 
             if (state.first) {
                 drift.stop();

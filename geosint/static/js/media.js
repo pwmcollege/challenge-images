@@ -12,6 +12,127 @@ let photoTouched = false;
 
 let photoFitting = false;
 
+const springPull = 900;
+
+const springDrag = 2 * Math.sqrt(900);
+
+const glideDecay = 0.94;
+
+const restSpeed = 20;
+
+let photoVx = 0;
+
+let photoVy = 0;
+
+let photoFrame = null;
+
+let photoClock = 0;
+
+let lastInput = 0;
+
+let inputGap = 0;
+
+L.Map.include({
+    panPrecise: function (dx, dy) {
+        this._rawPanBy(L.point(dx, dy));
+        this.fire("move");
+    },
+    boundsOffset: function () {
+        const bounds = this.options.maxBounds;
+
+        if (!bounds) {
+            return L.point(0, 0);
+        }
+
+        const half = this.getSize().divideBy(2);
+        const middle = this.project(this.getCenter());
+
+        return this._getBoundsOffset(
+            L.bounds(middle.subtract(half), middle.add(half)),
+            bounds,
+            this._zoom,
+        );
+    },
+    zoomAroundFree: function (point, zoom) {
+        const saved = this.options.maxBounds;
+
+        this.options.maxBounds = null;
+        try {
+            this.setZoomAround(
+                point,
+                Math.min(this.getMaxZoom(), Math.max(this.getMinZoom(), zoom)),
+                { animate: false },
+            );
+        } finally {
+            this.options.maxBounds = saved;
+        }
+    },
+});
+
+function noteInput() {
+    const now = performance.now();
+    const since = now - lastInput;
+
+    if (lastInput && since < 600) {
+        inputGap = Math.max(since, inputGap * 0.85);
+    }
+    lastInput = now;
+}
+
+function springAuthority() {
+    const quiet = Math.max(110, inputGap * 1.8);
+
+    return Math.min(Math.max((performance.now() - lastInput - quiet) / 100, 0), 1);
+}
+
+function dragFactor(offset, move, speed, span) {
+    if (!offset || Math.sign(move) === Math.sign(offset)) {
+        return 1;
+    }
+
+    return (1 / (1 + speed / 50)) * Math.max(1 - Math.abs(offset) / span, 0);
+}
+
+function springStep(now) {
+    const seconds = Math.min((now - photoClock) / 1000, 0.05);
+    photoClock = now;
+
+    const offset = photoMap.boundsOffset();
+    const outside = Math.abs(offset.x) > 0.5 || Math.abs(offset.y) > 0.5;
+    const authority = springAuthority();
+
+    if (authority < 1 && !outside) {
+        photoVx = 0;
+        photoVy = 0;
+    }
+
+    if (outside) {
+        photoVx += (springPull * authority * offset.x - springDrag * photoVx) * seconds;
+        photoVy += (springPull * authority * offset.y - springDrag * photoVy) * seconds;
+    } else {
+        const decay = Math.pow(glideDecay, seconds * 60);
+        photoVx *= decay;
+        photoVy *= decay;
+    }
+
+    if (!outside && authority >= 1 && Math.hypot(photoVx, photoVy) < restSpeed) {
+        photoVx = 0;
+        photoVy = 0;
+        photoFrame = null;
+        return;
+    }
+
+    photoMap.panPrecise(photoVx * seconds, photoVy * seconds);
+    photoFrame = requestAnimationFrame(springStep);
+}
+
+function wakeSpring() {
+    if (photoFrame === null) {
+        photoClock = performance.now();
+        photoFrame = requestAnimationFrame(springStep);
+    }
+}
+
 export async function mountMedia(media) {
     el.panoControls.hidden = media.kind !== "pano";
 
@@ -31,14 +152,70 @@ export async function mountMedia(media) {
             zoomSnap: 0,
             scrollWheelZoom: false,
             attributionControl: false,
-            maxBounds: L.latLngBounds(bounds).pad(0.6),
             maxBoundsViscosity: 0.5,
+        });
+        photoMap.options.maxBounds = L.latLngBounds(bounds).pad(0.6);
+        photoMap.on("move zoom", function () {
+            if (!photoFitting) {
+                photoTouched = true;
+            }
+        });
+        photoMap.on("dragstart drag", noteInput);
+        photoMap.on("dragend", wakeSpring);
+        el.pano.addEventListener("wheel", noteInput, {
+            capture: true,
+            passive: true,
+        });
+
+        gestureControls(el.pano, {
+            glide: false,
+            rubberband: 0.2,
+            input: noteInput,
+            fromScale: function () {
+                return [
+                    Math.pow(2, photoMap.getZoom() - photoMap.getMinZoom()),
+                    0,
+                ];
+            },
+            scaleBounds: function () {
+                return {
+                    min: 1,
+                    max: Math.pow(
+                        2,
+                        photoMap.getMaxZoom() - photoMap.getMinZoom(),
+                    ),
+                };
+            },
+            pan: function (dx, dy, speed) {
+                const size = photoMap.getSize();
+                const offset = photoMap.boundsOffset();
+
+                photoMap.panPrecise(
+                    -dx * dragFactor(offset.x, -dx, speed, size.x / 2),
+                    -dy * dragFactor(offset.y, -dy, speed, size.y / 2),
+                );
+                wakeSpring();
+            },
+            zoom: function (scale, origin) {
+                const rect = el.pano.getBoundingClientRect();
+
+                photoMap.zoomAroundFree(
+                    L.point(origin[0] - rect.left, origin[1] - rect.top),
+                    photoMap.getMinZoom() + Math.log2(scale),
+                );
+                wakeSpring();
+            },
         });
 
         el.pano.addEventListener(
             "wheel",
             function (event) {
                 event.preventDefault();
+
+                if (panMode()) {
+                    return;
+                }
+
                 const pixels =
                     event.deltaMode === 1
                         ? event.deltaY * 16
@@ -56,11 +233,6 @@ export async function mountMedia(media) {
         L.imageOverlay(source, bounds).addTo(photoMap);
         photoBounds = bounds;
         photoTouched = false;
-        photoMap.on("zoomstart movestart", function () {
-            if (!photoFitting) {
-                photoTouched = true;
-            }
-        });
         fitPhoto();
         loaderDone();
         return;
@@ -217,9 +389,11 @@ export function fitMedia() {
     photoMap.invalidateSize({ animate: false });
     limitPhotoZoom();
     photoFitting = false;
+
     if (!photoTouched) {
         fitPhoto();
     }
+    wakeSpring();
 }
 
 export function zoomPano(delta) {
