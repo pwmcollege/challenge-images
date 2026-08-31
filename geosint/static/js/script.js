@@ -353,6 +353,7 @@ function closeCurtain() {
     const mapObserver = new ResizeObserver(function () {
         guessMap.stop();
         guessMap.resize();
+        guessMap.redraw();
         clearTimeout(framePending);
         framePending = setTimeout(function () {
             frameGuess(320);
