@@ -666,5 +666,5 @@ function closeCurtain() {
     await refresh();
 })().catch(function (error) {
     console.error(error);
-    toast("Map unavailable");
+    loaderFailed(error.message || "Map unavailable");
 });

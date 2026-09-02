@@ -5,37 +5,73 @@ let pinSeq = 0;
 
 let satellitePlan = null;
 
-export async function basemap(container) {
+async function styleJson(signal) {
     const response = await fetch(
         "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+        { signal: signal },
     );
+
     if (!response.ok) {
         throw new Error("Basemap style returned " + response.status);
     }
+    return response.json();
+}
 
-    const map = new maplibregl.Map({
-        container: container,
-        style: await response.json(),
-        center: [0, 20],
-        zoom: 1,
-        minZoom: 1,
-        maxZoom: 18,
-        attributionControl: false,
-        dragRotate: false,
-    });
-    map.touchZoomRotate.disableRotation();
-
-    await new Promise(function (resolve, reject) {
+function whenLoaded(map, ms) {
+    return new Promise(function (resolve, reject) {
         const timer = setTimeout(function () {
-            map.remove();
             reject(new Error("Basemap timed out"));
-        }, 15000);
+        }, ms);
+
         map.once("load", function () {
             clearTimeout(timer);
             resolve();
         });
     });
-    return map;
+}
+
+export async function basemap(container) {
+    let failure = null;
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        const abort = new AbortController();
+        const guard = setTimeout(function () {
+            abort.abort();
+        }, 10000);
+        let map = null;
+
+        try {
+            const style = await styleJson(abort.signal);
+
+            clearTimeout(guard);
+            map = new maplibregl.Map({
+                container: container,
+                style: style,
+                center: [0, 20],
+                zoom: 1,
+                minZoom: 1,
+                maxZoom: 18,
+                attributionControl: false,
+                dragRotate: false,
+            });
+            map.touchZoomRotate.disableRotation();
+            await whenLoaded(map, 10000);
+            return map;
+        } catch (error) {
+            clearTimeout(guard);
+            failure = error;
+
+            if (map) {
+                map.remove();
+            }
+            if (attempt < 3) {
+                await new Promise(function (resolve) {
+                    setTimeout(resolve, 500 * attempt);
+                });
+            }
+        }
+    }
+    throw failure;
 }
 
 function satelliteStyle(layer) {
