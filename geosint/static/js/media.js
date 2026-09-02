@@ -154,7 +154,7 @@ export async function mountMedia(media) {
             attributionControl: false,
             maxBoundsViscosity: 0.5,
         });
-        photoMap.options.maxBounds = L.latLngBounds(bounds).pad(0.6);
+        photoMap.options.maxBounds = L.latLngBounds(bounds);
         photoMap.on("move zoom", function () {
             if (!photoFitting) {
                 photoTouched = true;

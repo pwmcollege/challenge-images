@@ -3,6 +3,8 @@ import { gestureControls, onModeChange } from "./navigation.js";
 
 let pinSeq = 0;
 
+let satellitePlan = null;
+
 export async function basemap(container) {
     const response = await fetch(
         "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
@@ -34,6 +36,157 @@ export async function basemap(container) {
         });
     });
     return map;
+}
+
+function satelliteStyle(layer) {
+    const id = layer.id;
+
+    if (layer.type === "symbol" || layer.type === "background") {
+        return null;
+    }
+    if (
+        /^(landcover|landuse|park_|water|building)/.test(id) ||
+        id === "boundary_county"
+    ) {
+        return [["visibility", "none"]];
+    }
+    if (id === "boundary_country_outline") {
+        return [["line-opacity", 0.7]];
+    }
+    if (id === "boundary_state") {
+        return [
+            ["line-color", "rgba(255, 255, 255, 0.75)"],
+            ["line-dasharray", [1, 0]],
+            [
+                "line-width",
+                ["interpolate", ["linear"], ["zoom"], 4, 0.9, 7, 1.6, 9, 2],
+            ],
+        ];
+    }
+    if (/^boundary_/.test(id)) {
+        return [
+            ["line-color", "rgba(255, 255, 255, 0.75)"],
+            ["line-dasharray", [1, 0]],
+        ];
+    }
+    if (layer.type !== "line") {
+        return null;
+    }
+    if (layer.paint && layer.paint["line-dasharray"]) {
+        return [["visibility", "none"]];
+    }
+
+    if (/_case/.test(id)) {
+        const start = /_mot_/.test(id)
+            ? 7.5
+            : /_trunk_/.test(id)
+              ? 8.5
+              : /_pri_/.test(id)
+                ? 9
+                : 10.5;
+
+        return [
+            [
+                "line-color",
+                [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    9,
+                    "rgba(214, 214, 210, 0.85)",
+                    10.5,
+                    "rgba(0, 0, 0, 0.3)",
+                ],
+            ],
+            [
+                "line-opacity",
+                [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    start - 0.75,
+                    0,
+                    start,
+                    1,
+                    16,
+                    1,
+                    17,
+                    0,
+                ],
+            ],
+        ];
+    }
+    return [
+        ["line-color", "rgba(198, 198, 196, 0.82)"],
+        [
+            "line-opacity",
+            ["interpolate", ["linear"], ["zoom"], 9.5, 0, 11, 1, 16, 1, 17, 0],
+        ],
+    ];
+}
+
+export function satelliteLayer(map) {
+    const layers = map.getStyle().layers;
+    const anchor = layers.find(function (layer) {
+        return layer.type !== "background";
+    });
+
+    if (satellitePlan === null) {
+        satellitePlan = [];
+        layers.forEach(function (layer) {
+            const rules = satelliteStyle(layer);
+
+            if (!rules) {
+                return;
+            }
+            rules.forEach(function (rule) {
+                satellitePlan.push({
+                    id: layer.id,
+                    prop: rule[0],
+                    on: rule[1],
+                    off:
+                        rule[0] === "visibility"
+                            ? map.getLayoutProperty(layer.id, "visibility") ||
+                              "visible"
+                            : map.getPaintProperty(layer.id, rule[0]),
+                });
+            });
+        });
+    }
+
+    map.addSource("satellite", {
+        type: "raster",
+        tileSize: 256,
+        maxzoom: 19,
+        tiles: [
+            "https://server.arcgisonline.com/ArcGIS/rest/services" +
+                "/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        ],
+    });
+    map.addLayer(
+        {
+            id: "satellite",
+            type: "raster",
+            source: "satellite",
+            layout: { visibility: "none" },
+        },
+        anchor && anchor.id,
+    );
+}
+
+export function showSatellite(map, on) {
+    map.setLayoutProperty("satellite", "visibility", on ? "visible" : "none");
+
+    satellitePlan.forEach(function (item) {
+        if (!map.getLayer(item.id)) {
+            return;
+        }
+        if (item.prop === "visibility") {
+            map.setLayoutProperty(item.id, "visibility", on ? item.on : item.off);
+        } else {
+            map.setPaintProperty(item.id, item.prop, on ? item.on : item.off);
+        }
+    });
 }
 
 function svgNode(name, attributes) {

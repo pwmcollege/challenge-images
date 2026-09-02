@@ -24,6 +24,7 @@
     --dock-h: 200px;
     --dock-w-open: min(46vw, 720px);
     --dock-h-open: min(62vh, 560px);
+    --dock-chrome: 64px;
 }
 
 * {
@@ -232,6 +233,42 @@ button.primary.solved:disabled {
         opacity 0.2s ease;
 }
 
+#mapdock.resizing,
+#mapdock.resizing #map {
+    transition: none;
+}
+
+#dock-grip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 520;
+    width: 30px;
+    height: 30px;
+    cursor: nwse-resize;
+    touch-action: none;
+    clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+#dock-grip svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    color: var(--text);
+    opacity: 0.42;
+    transition: opacity 0.15s ease;
+}
+
+#dock-grip:hover svg,
+#dock-grip:focus-visible svg,
+#mapdock.resizing #dock-grip svg {
+    opacity: 0.75;
+}
+
+#dock-grip:focus-visible {
+    outline: none;
+}
+
 body.map-hidden #mapdock {
     transform: translateY(calc(100% + 24px));
     opacity: 0;
@@ -249,7 +286,8 @@ body.no-hud #btn-mode {
     top: 14px;
 }
 
-#btn-mode[aria-pressed="true"] {
+#btn-mode[aria-pressed="true"],
+#btn-satellite[aria-pressed="true"] {
     color: var(--text);
 }
 
@@ -280,13 +318,26 @@ body.no-hud #btn-mode {
 #mapdock:hover,
 #mapdock:focus-within,
 #mapdock.pinned {
-    width: var(--dock-w-open);
+    width: max(var(--dock-w), var(--dock-w-open));
 }
 
 #mapdock:hover #map,
 #mapdock:focus-within #map,
 #mapdock.pinned #map {
-    height: var(--dock-h-open);
+    height: max(var(--dock-h), var(--dock-h-open));
+}
+
+#mapdock.zoomed {
+    bottom: 30px;
+    width: calc(100vw - 28px);
+}
+
+#mapdock.zoomed #map {
+    height: calc(100vh - 44px - var(--dock-chrome));
+}
+
+#mapdock.zoomed #dock-grip {
+    display: none;
 }
 
 #mapdock #btn-guess {
@@ -363,13 +414,17 @@ body.no-hud #btn-mode {
     z-index: 10;
     display: flex;
     flex-direction: column;
+    flex-wrap: wrap-reverse;
+    align-content: flex-start;
     align-items: flex-end;
     gap: 8px;
+    max-height: calc(100% - 16px);
 }
 
 .map-controls.left {
     right: auto;
     left: 8px;
+    flex-wrap: wrap;
     align-items: flex-start;
 }
 
@@ -804,10 +859,10 @@ body.no-hud #pano .leaflet-top.leaflet-left {
 
 @media (max-width: 720px) {
     :root {
-        --dock-w: 150px;
-        --dock-h: 110px;
+        --dock-w: min(210px, 58vw);
+        --dock-h: 176px;
         --dock-w-open: 92vw;
-        --dock-h-open: 52vh;
+        --dock-h-open: 58vh;
     }
 
     #credits {

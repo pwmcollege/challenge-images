@@ -73,40 +73,50 @@
             <div id="toast" role="status" aria-live="polite"></div>
 
             <section id="mapdock" aria-label="Guess map">
+                <div
+                    id="dock-grip"
+                    role="separator"
+                    tabindex="0"
+                    title="Resize map"
+                    aria-label="Resize map"
+                >
+                    <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true">
+                        <path
+                            d="M25 3.5 H20.5 A17 17 0 0 0 3.5 20.5 V25"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                        />
+                    </svg>
+                </div>
                 <div id="map">
                     <div class="map-controls left">
-                        <button
-                            id="btn-expand"
-                            class="glyph"
-                            aria-pressed="false"
-                            title="Expand map"
-                            aria-label="Expand map"
-                        >
-                            <i data-lucide="maximize-2" aria-hidden="true"></i>
-                        </button>
-                        <button
-                            id="btn-coord"
-                            class="glyph"
-                            aria-pressed="false"
-                            aria-controls="coord-entry"
-                            title="Enter coordinates"
-                            aria-label="Enter coordinates"
-                        >
-                            <i
-                                data-lucide="locate-fixed"
-                                aria-hidden="true"
-                            ></i>
-                        </button>
                         <button
                             id="btn-map-hide"
                             class="glyph"
                             title="Hide map"
                             aria-label="Hide map"
                         >
-                            <i
-                                data-lucide="chevron-down"
-                                aria-hidden="true"
-                            ></i>
+                            <i data-lucide="x" aria-hidden="true"></i>
+                        </button>
+                        <button
+                            id="btn-expand"
+                            class="glyph"
+                            aria-pressed="false"
+                            title="Zoom map"
+                            aria-label="Zoom map"
+                        >
+                            <i data-lucide="maximize-2" aria-hidden="true"></i>
+                        </button>
+                        <button
+                            id="btn-satellite"
+                            class="glyph"
+                            aria-pressed="false"
+                            title="Show satellite"
+                            aria-label="Show satellite"
+                        >
+                            <i data-lucide="road" aria-hidden="true"></i>
                         </button>
                     </div>
                     <div class="map-controls">
@@ -128,6 +138,19 @@
                                 <i data-lucide="minus" aria-hidden="true"></i>
                             </button>
                         </div>
+                        <button
+                            id="btn-coord"
+                            class="glyph"
+                            aria-pressed="false"
+                            aria-controls="coord-entry"
+                            title="Enter coordinates"
+                            aria-label="Enter coordinates"
+                        >
+                            <i
+                                data-lucide="locate-fixed"
+                                aria-hidden="true"
+                            ></i>
+                        </button>
                         <button
                             id="btn-reset"
                             class="glyph"
@@ -237,8 +260,10 @@
             </button>
 
             <footer id="credits">
-                Basemap &copy; CARTO &middot; &copy; OpenStreetMap contributors
-                (ODbL) &middot; MapLibre (BSD-3) &middot; Leaflet (BSD-2)
+                <span id="basemap-credit"
+                    >Basemap &copy; CARTO &middot; &copy; OpenStreetMap
+                    contributors (ODbL)</span
+                >&nbsp;&middot; MapLibre (BSD-3) &middot; Leaflet (BSD-2)
                 &middot; Pannellum (MIT) &middot; Lucide (ISC)
             </footer>
         </div>
