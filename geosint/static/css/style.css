@@ -25,6 +25,7 @@
     --dock-w-open: min(46vw, 720px);
     --dock-h-open: min(62vh, 560px);
     --dock-chrome: 64px;
+    --dock-max-bottom: 30px;
 }
 
 * {
@@ -328,12 +329,14 @@ body.no-hud #btn-mode {
 }
 
 #mapdock.zoomed {
-    bottom: 30px;
+    bottom: var(--dock-max-bottom);
     width: calc(100vw - 28px);
 }
 
 #mapdock.zoomed #map {
-    height: calc(100vh - 44px - var(--dock-chrome));
+    height: calc(
+        100vh - 14px - var(--dock-max-bottom) - var(--dock-chrome)
+    );
 }
 
 #mapdock.zoomed #dock-grip {
@@ -863,6 +866,7 @@ body.no-hud #pano .leaflet-top.leaflet-left {
         --dock-h: 176px;
         --dock-w-open: 92vw;
         --dock-h-open: 58vh;
+        --dock-max-bottom: 14px;
     }
 
     #credits {

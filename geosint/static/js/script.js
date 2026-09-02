@@ -140,6 +140,31 @@ function setZoomed(zoomed) {
     setIcon(el.expand, zoomed ? "minimize-2" : "maximize-2");
 }
 
+function paintGrip() {
+    const dock = getComputedStyle(el.dock);
+    const border = parseFloat(dock.borderTopWidth);
+    const gap =
+        el.map.getBoundingClientRect().left -
+        el.dock.getBoundingClientRect().left -
+        border;
+    const outer = parseFloat(dock.borderTopLeftRadius) - border;
+    const inner = parseFloat(getComputedStyle(el.map).borderTopLeftRadius);
+    const radius = (outer + inner) / 2;
+    const centre = (outer + gap + inner) / 2;
+    const arm = centre - radius;
+    const tip = el.grip.clientWidth - 5;
+
+    el.grip
+        .querySelector("path")
+        .setAttribute(
+            "d",
+            "M" + tip + " " + arm +
+                " H" + centre +
+                " A" + radius + " " + radius + " 0 0 0 " + arm + " " + centre +
+                " V" + tip,
+        );
+}
+
 function dockBase() {
     if (!dockSize) {
         const pinned = el.dock.classList.contains("pinned");
@@ -157,8 +182,12 @@ function sizeDock(width, height) {
     const chrome = el.dock.offsetHeight - el.map.offsetHeight;
     const minWidth = Math.max(220, parseFloat(style.getPropertyValue("--dock-w")) || 0);
     const minHeight = Math.max(150, parseFloat(style.getPropertyValue("--dock-h")) || 0);
+    const bottom = parseFloat(style.getPropertyValue("--dock-max-bottom")) || 14;
     const maxWidth = Math.max(minWidth, window.innerWidth - 28);
-    const maxHeight = Math.max(minHeight, window.innerHeight - 28 - chrome);
+    const maxHeight = Math.max(
+        minHeight,
+        window.innerHeight - 14 - bottom - chrome,
+    );
 
     dockSize = {
         width: Math.round(Math.min(Math.max(width, minWidth), maxWidth)),
@@ -499,6 +528,7 @@ function closeCurtain() {
     mediaObserver.observe(el.pano);
     window.addEventListener("resize", fitMedia);
     window.addEventListener("resize", function () {
+        paintGrip();
         if (dockSize) {
             sizeDock(dockSize.width, dockSize.height);
         }
@@ -534,6 +564,7 @@ function closeCurtain() {
     });
 
     restoreDock();
+    paintGrip();
     el.grip.addEventListener("pointerdown", dragDock);
     el.grip.addEventListener("dblclick", resetDock);
     el.grip.addEventListener("keydown", nudgeDock);
