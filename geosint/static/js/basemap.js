@@ -1,9 +1,17 @@
 import { greatCircle } from "./geo.js";
 import { gestureControls, onModeChange } from "./navigation.js";
 
+const satelliteService =
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer";
+const satelliteTileMaxZoom = 19;
+const satelliteZoomOffset = 1;
+
 let pinSeq = 0;
 
 let satellitePlan = null;
+
+const satelliteAvailability = new Map();
+const satelliteStates = new WeakMap();
 
 async function styleJson(signal) {
     const response = await fetch(
@@ -193,11 +201,8 @@ export function satelliteLayer(map) {
     map.addSource("satellite", {
         type: "raster",
         tileSize: 256,
-        maxzoom: 19,
-        tiles: [
-            "https://server.arcgisonline.com/ArcGIS/rest/services" +
-                "/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        ],
+        maxzoom: satelliteTileMaxZoom,
+        tiles: [satelliteService + "/tile/{z}/{y}/{x}?blankTile=false"],
     });
     map.addLayer(
         {
@@ -208,9 +213,48 @@ export function satelliteLayer(map) {
         },
         anchor && anchor.id,
     );
+
+    satelliteStates.set(map, {
+        abort: null,
+        defaultMaxZoom: map.getMaxZoom(),
+        enabled: false,
+        revision: 0,
+        timer: null,
+    });
+    map.on("moveend", function () {
+        queueSatelliteLimit(map);
+    });
+    map.on("remove", function () {
+        const state = satelliteStates.get(map);
+
+        state.enabled = false;
+        state.revision++;
+        clearTimeout(state.timer);
+        if (state.abort) {
+            state.abort.abort();
+        }
+        satelliteStates.delete(map);
+    });
 }
 
 export function showSatellite(map, on) {
+    const state = satelliteStates.get(map);
+
+    if (state) {
+        state.enabled = on;
+        if (on) {
+            queueSatelliteLimit(map);
+        } else {
+            state.revision++;
+            clearTimeout(state.timer);
+            if (state.abort) {
+                state.abort.abort();
+                state.abort = null;
+            }
+            map.setMaxZoom(state.defaultMaxZoom);
+        }
+    }
+
     map.setLayoutProperty("satellite", "visibility", on ? "visible" : "none");
 
     satellitePlan.forEach(function (item) {
@@ -223,6 +267,122 @@ export function showSatellite(map, on) {
             map.setPaintProperty(item.id, item.prop, on ? item.on : item.off);
         }
     });
+}
+
+function satelliteTile(at, zoom) {
+    const count = Math.pow(2, zoom);
+    const lon = ((((at.lng + 180) % 360) + 360) % 360) - 180;
+    const lat = Math.max(-85.051129, Math.min(85.051129, at.lat));
+    const x = Math.floor(((lon + 180) / 360) * count);
+    const y = Math.floor(
+        ((1 - Math.asinh(Math.tan((lat * Math.PI) / 180)) / Math.PI) / 2) *
+            count,
+    );
+
+    return {
+        x: Math.max(0, Math.min(count - 1, x)),
+        y: Math.max(0, Math.min(count - 1, y)),
+    };
+}
+
+async function hasSatelliteTile(at, zoom, signal) {
+    const tile = satelliteTile(at, zoom);
+    const key = zoom + "/" + tile.y + "/" + tile.x;
+
+    if (satelliteAvailability.has(key)) {
+        return satelliteAvailability.get(key);
+    }
+    if (satelliteAvailability.size >= 512) {
+        satelliteAvailability.delete(satelliteAvailability.keys().next().value);
+    }
+
+    const url = satelliteService + "/tilemap/" + key + "/1/1?f=json";
+    const response = await fetch(url, { signal: signal });
+    if (response.status === 422) {
+        satelliteAvailability.set(key, false);
+        return false;
+    }
+    if (!response.ok) {
+        throw new Error("Satellite coverage returned " + response.status);
+    }
+
+    const result = await response.json();
+    const available = result.valid !== false && result.data && result.data[0] === 1;
+    satelliteAvailability.set(key, available);
+    return available;
+}
+
+async function updateSatelliteLimit(map, revision) {
+    const state = satelliteStates.get(map);
+
+    if (!state || !state.enabled || state.revision !== revision) {
+        return;
+    }
+
+    const abort = new AbortController();
+    const at = map.getCenter();
+    let maxZoom = map.getMinZoom();
+
+    if (state.abort) {
+        state.abort.abort();
+    }
+    state.abort = abort;
+    const timer = setTimeout(function () {
+        abort.abort();
+    }, 10000);
+
+    try {
+        for (
+            let tileZoom = satelliteTileMaxZoom;
+            tileZoom >= map.getMinZoom() + satelliteZoomOffset;
+            tileZoom--
+        ) {
+            if (await hasSatelliteTile(at, tileZoom, abort.signal)) {
+                maxZoom = tileZoom - satelliteZoomOffset;
+                break;
+            }
+        }
+    } catch (error) {
+        if (error.name !== "AbortError") {
+            console.warn("Could not check satellite coverage", error);
+        }
+        return;
+    } finally {
+        clearTimeout(timer);
+        if (state.abort === abort) {
+            state.abort = null;
+        }
+    }
+
+    if (!state.enabled || state.revision !== revision) {
+        return;
+    }
+    const limit = Math.min(state.defaultMaxZoom, maxZoom);
+
+    map.setMaxZoom(limit);
+    if (map.getZoom() > limit) {
+        map.jumpTo({ zoom: limit });
+    }
+}
+
+function queueSatelliteLimit(map) {
+    const state = satelliteStates.get(map);
+
+    if (!state || !state.enabled) {
+        return;
+    }
+
+    const revision = ++state.revision;
+
+    clearTimeout(state.timer);
+    if (state.abort) {
+        state.abort.abort();
+        state.abort = null;
+    }
+    state.timer = setTimeout(function () {
+        state.timer = null;
+        updateSatelliteLimit(map, revision);
+    }, 80);
 }
 
 function svgNode(name, attributes) {
