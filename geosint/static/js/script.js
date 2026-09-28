@@ -6,518 +6,407 @@ import {
     pinAt,
     revealLayer,
     satelliteLayer,
-    showSatellite,
 } from "./basemap.js";
-import { el, renderIcons, setIcon, toast } from "./dom.js";
+import { createToast, getElements, renderIcons, setIcon } from "./dom.js";
+import { installDock } from "./dock.js";
 import { offsetReadout, parseCoordinates } from "./geo.js";
-import { loaderFailed } from "./loader.js";
-import { fitMedia, mountMedia, zoomPano } from "./media.js";
-import { installModeToggle } from "./navigation.js";
+import { createLoader } from "./loader.js";
+import { createMedia } from "./media.js";
+import { createNavigation } from "./navigation.js";
 
-let guessMap = null;
+async function main() {
+    const el = getElements();
+    const toast = createToast(el.toast);
+    const navigation = createNavigation();
+    const loader = createLoader(el);
+    const { fitMedia, mountMedia, zoomPano } = createMedia(el, loader, navigation);
+    const { loaderFailed } = loader;
+    let guessMap = null;
+    let resultMap = null;
+    let guessSatellite = null;
+    let resultSatellite = null;
+    let resultMarkers = [];
+    let guessMarker = null;
+    let guessPressAt = null;
+    let framePending = null;
+    let satellite = false;
+    let mounted = false;
+    let state = null;
+    let busy = false;
+    let resultMapPromise = null;
 
-let resultMap = null;
-
-let resultMarkers = [];
-
-let guessMarker = null;
-
-let guessPressAt = null;
-
-let framePending = null;
-
-let satellite = false;
-
-let dockSize = null;
-
-let mounted = false;
-
-let state = null;
-
-let busy = false;
-
-async function api(path, options) {
-    const response = await fetch(path, options);
-    let body = null;
-    try {
-        body = await response.json();
-    } catch (e) {
-        body = null;
-    }
-    return { ok: response.ok, status: response.status, body };
-}
-
-function refreshCoordApply() {
-    el.coordApply.disabled = parseCoordinates(el.coordInput.value) === null;
-}
-
-function writeCoordInput() {
-    if (!guessMarker) {
-        return;
-    }
-    const at = guessMarker.getLngLat();
-    el.coordInput.value = at.lat.toFixed(5) + ", " + at.lng.toFixed(5);
-    el.coordEntry.classList.remove("invalid");
-    refreshCoordApply();
-}
-
-function showCoordEntry(open) {
-    el.coordEntry.hidden = !open;
-    el.coordToggle.setAttribute("aria-pressed", String(open));
-    el.coordEntry.classList.remove("invalid");
-    refreshCoordApply();
-    if (open) {
-        el.coordInput.select();
-        el.coordInput.focus();
-    }
-}
-
-function applyTypedCoordinates() {
-    const parsed = parseCoordinates(el.coordInput.value);
-    if (!parsed) {
-        el.coordEntry.classList.add("invalid");
-        return false;
-    }
-    el.coordEntry.classList.remove("invalid");
-    setGuess({ lng: parsed.lon, lat: parsed.lat });
-    guessMap.jumpTo({
-        center: [parsed.lon, parsed.lat],
-        zoom: Math.max(guessMap.getZoom(), 12),
-    });
-    return true;
-}
-
-function setGuess(latlng) {
-    if (state && state.solved) {
-        return;
+    async function api(path, options) {
+        const response = await fetch(path, { ...options, signal: AbortSignal.timeout(10000) });
+        return { ok: response.ok, status: response.status, body: await response.json() };
     }
 
-    el.guess.classList.remove("miss");
-    const wrapped = maplibregl.LngLat.convert(latlng).wrap();
-    if (guessMarker) {
-        guessMarker.setLngLat(wrapped);
-    } else {
-        guessMarker = new maplibregl.Marker({
-            element: createPin("#f38ba8", "#d20f39", "guess-pin"),
-            anchor: "bottom",
-            draggable: true,
-        })
-            .setLngLat(wrapped)
-            .addTo(guessMap);
-        guessMarker.on("drag", writeCoordInput);
-        guessMarker.on("dragend", function () {
-            setGuess(guessMarker.getLngLat().wrap());
-            writeCoordInput();
-        });
-        guessMarker.getElement().addEventListener("pointerdown", function (event) {
-            guessPressAt = { x: event.clientX, y: event.clientY };
-        });
-        guessMarker.getElement().addEventListener("click", function (event) {
-            event.stopPropagation();
-            const moved =
-                guessPressAt &&
-                Math.hypot(event.clientX - guessPressAt.x, event.clientY - guessPressAt.y) > 4;
-            guessPressAt = null;
-            if (!moved && !(state && state.solved)) {
-                clearGuess();
-            }
-        });
+    function setBusy(value) {
+        busy = value;
+        el.reset.disabled = value;
+        el.guess.disabled = value || (!guessMarker && !state?.solved);
+        el.coordToggle.disabled = value || Boolean(state?.solved);
+        el.coordInput.disabled = value;
+        refreshCoordApply();
+        guessMarker?.setDraggable(!value && !state?.solved);
     }
 
-    el.guess.disabled = false;
-    el.guess.querySelector("span").textContent = "Guess";
-
-    if (document.activeElement !== el.coordInput) {
-        writeCoordInput();
+    function refreshCoordApply() {
+        el.coordApply.disabled = busy || parseCoordinates(el.coordInput.value) === null;
     }
-}
 
-function setZoomed(zoomed) {
-    el.dock.classList.toggle("zoomed", zoomed);
-    el.expand.setAttribute("aria-pressed", String(zoomed));
-    el.expand.title = zoomed ? "Restore map size" : "Zoom map";
-    el.expand.setAttribute("aria-label", el.expand.title);
-    setIcon(el.expand, zoomed ? "minimize-2" : "maximize-2");
-}
-
-function paintGrip() {
-    const dock = getComputedStyle(el.dock);
-    const border = parseFloat(dock.borderTopWidth);
-    const gap =
-        el.map.getBoundingClientRect().left -
-        el.dock.getBoundingClientRect().left -
-        border;
-    const outer = parseFloat(dock.borderTopLeftRadius) - border;
-    const inner = parseFloat(getComputedStyle(el.map).borderTopLeftRadius);
-    const radius = (outer + inner) / 2;
-    const centre = (outer + gap + inner) / 2;
-    const arm = centre - radius;
-    const tip = el.grip.clientWidth - 5;
-
-    el.grip
-        .querySelector("path")
-        .setAttribute(
-            "d",
-            "M" + tip + " " + arm +
-                " H" + centre +
-                " A" + radius + " " + radius + " 0 0 0 " + arm + " " + centre +
-                " V" + tip,
-        );
-}
-
-function dockBase() {
-    if (!dockSize) {
-        const pinned = el.dock.classList.contains("pinned");
-
-        el.dock.classList.add("resizing", "pinned");
-        dockSize = { width: el.dock.offsetWidth, height: el.map.offsetHeight };
-        el.dock.classList.toggle("pinned", pinned);
-        el.dock.classList.remove("resizing");
-    }
-    return dockSize;
-}
-
-function sizeDock(width, height) {
-    const style = getComputedStyle(el.dock);
-    const chrome = el.dock.offsetHeight - el.map.offsetHeight;
-    const minWidth = Math.max(220, parseFloat(style.getPropertyValue("--dock-w")) || 0);
-    const minHeight = Math.max(150, parseFloat(style.getPropertyValue("--dock-h")) || 0);
-    const bottom = parseFloat(style.getPropertyValue("--dock-max-bottom")) || 14;
-    const maxWidth = Math.max(minWidth, window.innerWidth - 28);
-    const maxHeight = Math.max(
-        minHeight,
-        window.innerHeight - 14 - bottom - chrome,
-    );
-
-    dockSize = {
-        width: Math.round(Math.min(Math.max(width, minWidth), maxWidth)),
-        height: Math.round(Math.min(Math.max(height, minHeight), maxHeight)),
-    };
-    el.dock.style.setProperty("--dock-w-open", dockSize.width + "px");
-    el.dock.style.setProperty("--dock-h-open", dockSize.height + "px");
-}
-
-function storeDockSize() {
-    try {
-        if (dockSize) {
-            localStorage.setItem(
-                "map-size",
-                dockSize.width + "x" + dockSize.height,
-            );
-        } else {
-            localStorage.removeItem("map-size");
+    function writeCoordInput() {
+        if (!guessMarker) {
+            return;
         }
-    } catch (error) {
-        return;
-    }
-}
-
-function resetDock() {
-    dockSize = null;
-    el.dock.style.removeProperty("--dock-w-open");
-    el.dock.style.removeProperty("--dock-h-open");
-    storeDockSize();
-}
-
-function restoreDock() {
-    let saved = "";
-
-    try {
-        saved = localStorage.getItem("map-size") || "";
-    } catch (error) {
-        saved = "";
+        const at = guessMarker.getLngLat();
+        el.coordInput.value = at.lat.toFixed(5) + ", " + at.lng.toFixed(5);
+        el.coordEntry.classList.remove("invalid");
+        refreshCoordApply();
     }
 
-    const parts = saved.split("x");
-
-    if (parts.length === 2 && Number(parts[0]) > 0 && Number(parts[1]) > 0) {
-        sizeDock(Number(parts[0]), Number(parts[1]));
-    }
-}
-
-function dragDock(event) {
-    event.preventDefault();
-    el.grip.focus({ preventScroll: true });
-
-    const from = dockBase();
-    const fromX = event.clientX;
-    const fromY = event.clientY;
-    const fromWidth = from.width;
-    const fromHeight = from.height;
-
-    el.dock.classList.add("pinned", "resizing");
-
-    function move(next) {
-        sizeDock(
-            fromWidth + fromX - next.clientX,
-            fromHeight + fromY - next.clientY,
-        );
+    function showCoordEntry(open) {
+        el.coordEntry.hidden = !open;
+        el.coordToggle.setAttribute("aria-pressed", String(open));
+        el.coordEntry.classList.remove("invalid");
+        refreshCoordApply();
+        if (open) {
+            el.coordInput.select();
+            el.coordInput.focus();
+        }
     }
 
-    function done() {
-        window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", done);
-        window.removeEventListener("pointercancel", done);
-        window.removeEventListener("blur", done);
-        el.dock.classList.remove("pinned", "resizing");
-        storeDockSize();
+    function applyTypedCoordinates() {
+        if (busy || !guessMap || state?.solved) {
+            return false;
+        }
+        const parsed = parseCoordinates(el.coordInput.value);
+        if (!parsed) {
+            el.coordEntry.classList.add("invalid");
+            return false;
+        }
+        el.coordEntry.classList.remove("invalid");
+        setGuess({ lng: parsed.lon, lat: parsed.lat });
+        guessMap.jumpTo({
+            center: [parsed.lon, parsed.lat],
+            zoom: Math.max(guessMap.getZoom(), 12),
+        });
+        return true;
     }
 
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", done);
-    window.addEventListener("pointercancel", done);
-    window.addEventListener("blur", done);
-}
+    function setGuess(latlng) {
+        if (busy || (state && state.solved)) {
+            return;
+        }
 
-function nudgeDock(event) {
-    const step = event.shiftKey ? 40 : 10;
-    const wider = { ArrowLeft: step, ArrowRight: -step }[event.key] || 0;
-    const taller = { ArrowUp: step, ArrowDown: -step }[event.key] || 0;
-
-    if (!wider && !taller) {
-        return;
-    }
-    event.preventDefault();
-
-    const from = dockBase();
-
-    sizeDock(from.width + wider, from.height + taller);
-    storeDockSize();
-}
-
-function setMapVisible(visible) {
-    document.body.classList.toggle("map-hidden", !visible);
-    el.mapShow.hidden = visible;
-    if (visible) {
-        guessMap.resize();
-        frameGuess(0);
-    }
-}
-
-function frameGuess(duration) {
-    if (!guessMarker) {
-        return;
-    }
-    const at = guessMarker.getLngLat();
-    const point = guessMap.project(at);
-    const canvas = guessMap.getCanvas();
-    if (
-        point.x >= 24 &&
-        point.y >= 24 &&
-        point.x <= canvas.clientWidth - 24 &&
-        point.y <= canvas.clientHeight - 24
-    ) {
-        return;
-    }
-    guessMap.easeTo({ center: at, duration: duration });
-}
-
-function showGuess(guess) {
-    if (guessMarker) {
-        guessMarker.setDraggable(false);
-    } else if (guess) {
-        guessMarker = pinAt(guessMap, guess, "#f38ba8", "#d20f39", "Your guess");
-    }
-}
-
-function clearGuess() {
-    if (guessMarker) {
-        guessMarker.remove();
-        guessMarker = null;
-    }
-    el.coordInput.value = "";
-    el.coordEntry.classList.remove("invalid");
-    refreshCoordApply();
-    el.guess.classList.remove("miss", "solved");
-    el.guess.disabled = true;
-    el.guess.title = "";
-    el.guess.querySelector("span").textContent = "Drop a pin";
-}
-
-function render(next) {
-    state = next;
-
-    if (next.solved) {
-        el.guess.disabled = false;
         el.guess.classList.remove("miss");
-        el.guess.classList.add("solved");
-        el.guess.querySelector("span").textContent = "Solved";
-        el.guess.title = "Show the result again";
-        showCoordEntry(false);
-        showGuess(next.guess);
-        frameGuess(0);
-    }
-    el.coordToggle.disabled = Boolean(next.solved);
-
-    if (!mounted) {
-        mounted = true;
-        mountMedia(next.media).catch(function (error) {
-            loaderFailed(error.message);
-        });
-    }
-}
-
-async function refresh() {
-    const { ok, body } = await api("api/state");
-    if (!ok) {
-        toast("server error");
-        return;
-    }
-    render(body);
-}
-
-async function submitGuess(retried) {
-    if (busy || !guessMarker || (state && state.solved)) {
-        return;
-    }
-
-    busy = true;
-    el.guess.disabled = true;
-    const at = guessMarker.getLngLat().wrap();
-
-    const { ok, status, body } = await api("api/guess", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lat: at.lat, lon: at.lng }),
-    });
-    busy = false;
-
-    if (status === 429) {
-        if (retried) {
-            el.guess.disabled = false;
-            toast("Too many guesses at once. Try again.");
-            return;
+        const wrapped = maplibregl.LngLat.convert(latlng).wrap();
+        if (guessMarker) {
+            guessMarker.setLngLat(wrapped);
+        } else {
+            guessMarker = new maplibregl.Marker({
+                element: createPin("#f38ba8", "#d20f39", "guess-pin"),
+                anchor: "bottom",
+                draggable: true,
+            })
+                .setLngLat(wrapped)
+                .addTo(guessMap);
+            guessMarker.on("drag", writeCoordInput);
+            guessMarker.on("dragend", () => {
+                setGuess(guessMarker.getLngLat().wrap());
+                writeCoordInput();
+            });
+            guessMarker.getElement().addEventListener("pointerdown", (event) => {
+                guessPressAt = { x: event.clientX, y: event.clientY };
+            });
+            guessMarker.getElement().addEventListener("click", (event) => {
+                event.stopPropagation();
+                const moved = guessPressAt &&
+                    Math.hypot(event.clientX - guessPressAt.x, event.clientY - guessPressAt.y) > 4;
+                guessPressAt = null;
+                if (!busy && !moved && !(state && state.solved)) {
+                    clearGuess();
+                }
+            });
         }
-        setTimeout(function () {
-            submitGuess(true);
-        }, Math.max(0, Number(body && body.retry_after) || 0) * 1000 + 80);
-        return;
-    }
 
-    if (!ok) {
-        if (status === 409) {
-            await refresh();
-            return;
-        }
-        toast(body && body.error ? body.error : "guess rejected");
         el.guess.disabled = false;
-        return;
-    }
+        el.guess.querySelector("span").textContent = "Guess";
 
-    if (body.outcome === "wrong") {
-        guessMarker.remove();
-        guessMarker = null;
-        el.guess.disabled = true;
-        el.guess.classList.add("miss");
-        el.guess.querySelector("span").textContent = "Not here";
-        render(body.state);
-        return;
-    }
-
-    await showResult(body.state);
-}
-
-function clearResultMarkers() {
-    resultMarkers.forEach(function (marker) {
-        marker.remove();
-    });
-    resultMarkers = [];
-    if (resultMap) {
-        resultMap.getSource("reveal").setData({ type: "FeatureCollection", features: [] });
-    }
-}
-
-function setCopied(done) {
-    el.copy.classList.toggle("copied", done);
-    el.copy.title = done ? "Copied" : "Copy";
-    setIcon(el.copy, done ? "check" : "copy");
-}
-
-async function copyFlag() {
-    const text = el.flag.textContent;
-    if (!text) {
-        return;
-    }
-
-    try {
-        await navigator.clipboard.writeText(text);
-    } catch (e) {
-        const range = document.createRange();
-        range.selectNodeContents(el.flag);
-        const selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
-        try {
-            document.execCommand("copy");
-        } catch (fallback) {
-            return;
+        if (document.activeElement !== el.coordInput) {
+            writeCoordInput();
         }
     }
-    setCopied(true);
-}
 
-async function showResult(next) {
-    const guess = next.guess;
-    const answer = next.answer;
-
-    el.distance.textContent = offsetReadout(next.distance_km, guess, answer);
-    el.flagField.hidden = !next.flag;
-    el.flag.textContent = next.flag || "";
-    setCopied(false);
-    el.curtain.hidden = false;
-
-    if (!resultMap) {
-        resultMap = await basemap(document.getElementById("result-map"));
-        satelliteLayer(resultMap);
-        revealLayer(resultMap);
+    function frameGuess(duration) {
+        if (!guessMarker) {
+            return;
+        }
+        const at = guessMarker.getLngLat();
+        const point = guessMap.project(at);
+        const canvas = guessMap.getCanvas();
+        if (
+            point.x >= 24 &&
+            point.y >= 24 &&
+            point.x <= canvas.clientWidth - 24 &&
+            point.y <= canvas.clientHeight - 24
+        ) {
+            return;
+        }
+        guessMap.easeTo({ center: at, duration });
     }
-    showSatellite(resultMap, satellite);
 
-    clearResultMarkers();
-    resultMap.resize();
-    resultMap.getSource("reveal").setData(lineBetween(guess, answer));
-
-    resultMarkers = [
-        pinAt(resultMap, guess, "#f38ba8", "#d20f39", "Your guess"),
-        pinAt(resultMap, answer, "#a6e3a1", "#40a02b", "The answer"),
-    ];
-
-    resultMap.fitBounds(
-        resultMarkers.reduce(function (bounds, marker) {
-            return bounds.extend(marker.getLngLat());
-        }, new maplibregl.LngLatBounds()),
-        { padding: 46, maxZoom: 13, duration: 0 },
-    );
-
-    render(next);
-}
-
-function closeCurtain() {
-    el.curtain.hidden = true;
-    clearResultMarkers();
-    if (state && state.solved) {
-        frameGuess(700);
-    } else {
-        clearGuess();
-        guessMap.jumpTo({ center: [0, 20], zoom: 1 });
+    function showGuess(guess) {
+        if (!guessMap) {
+            return;
+        }
+        if (guessMarker) {
+            guessMarker.setDraggable(false);
+            guessMarker.setLngLat([guess.lon, guess.lat]);
+        } else if (guess) {
+            guessMarker = pinAt(guessMap, guess, "#f38ba8", "#d20f39", "Your guess");
+        }
     }
-    refresh();
-}
 
-(async function main() {
+    function clearGuess() {
+        if (guessMarker) {
+            guessMarker.remove();
+            guessMarker = null;
+        }
+        el.coordInput.value = "";
+        el.coordEntry.classList.remove("invalid");
+        refreshCoordApply();
+        el.guess.classList.remove("miss", "solved");
+        el.guess.disabled = true;
+        el.guess.title = "";
+        el.guess.querySelector("span").textContent = "Drop a pin";
+    }
+
+    function render(next) {
+        state = next;
+
+        if (next.solved) {
+            el.guess.disabled = false;
+            el.guess.classList.remove("miss");
+            el.guess.classList.add("solved");
+            el.guess.querySelector("span").textContent = "Solved";
+            el.guess.title = "Show the result again";
+            showCoordEntry(false);
+            showGuess(next.guess);
+            frameGuess(0);
+        }
+        setBusy(busy);
+
+        if (!mounted) {
+            mounted = true;
+            mountMedia(next.media).catch((error) => {
+                loaderFailed(error.message);
+            });
+        }
+    }
+
+    async function refresh() {
+        try {
+            const { ok, body } = await api("api/state");
+            if (!ok) {
+                throw new Error(body.error || "Could not load challenge");
+            }
+            render(body);
+        } catch (error) {
+            toast("Could not reach the server. Try again.");
+            if (!mounted) {
+                loaderFailed("Could not load challenge. Reload to try again.");
+            }
+        }
+    }
+
+    async function submitGuess() {
+        if (busy || !guessMarker || state?.solved) {
+            return;
+        }
+
+        setBusy(true);
+        const at = guessMarker.getLngLat().wrap();
+        const options = {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ lat: at.lat, lon: at.lng }),
+        };
+
+        try {
+            let response = await api("api/guess", options);
+            if (response.status === 429) {
+                await new Promise((resolve) => {
+                    setTimeout(
+                        resolve,
+                        Math.min(1000, Math.max(0, Number(response.body.retry_after) || 0) * 1000) +
+                            80,
+                    );
+                });
+                response = await api("api/guess", options);
+            }
+            if (response.status === 409) {
+                await refresh();
+                return;
+            }
+            if (!response.ok) {
+                toast(response.body.error || "Guess rejected. Try again.");
+                return;
+            }
+            if (response.body.outcome === "wrong") {
+                clearGuess();
+                el.guess.classList.add("miss");
+                el.guess.querySelector("span").textContent = "Not here";
+                render(response.body.state);
+            } else {
+                await showResult(response.body.state);
+            }
+        } catch (error) {
+            toast(
+                error.name === "TimeoutError"
+                    ? "Request timed out. Try again."
+                    : "Could not submit guess. Try again.",
+            );
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    function clearResultMarkers() {
+        resultMarkers.forEach((marker) => {
+            marker.remove();
+        });
+        resultMarkers = [];
+        if (resultMap) {
+            resultMap.getSource("reveal")?.setData({ type: "FeatureCollection", features: [] });
+        }
+    }
+
+    function setCopied(done) {
+        el.copy.classList.toggle("copied", done);
+        el.copy.title = done ? "Copied" : "Copy";
+        setIcon(el.copy, done ? "check" : "copy");
+    }
+
+    async function copyFlag() {
+        const text = el.flag.textContent;
+        if (!text) {
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(text);
+        } catch (e) {
+            const range = document.createRange();
+            range.selectNodeContents(el.flag);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                if (!document.execCommand("copy")) {
+                    toast("Select the flag and copy it manually.");
+                    return;
+                }
+            } catch (fallback) {
+                return;
+            }
+        }
+        setCopied(true);
+    }
+
+    async function showResult(next) {
+        render(next);
+        const guess = next.guess;
+        const answer = next.answer;
+
+        el.distance.textContent = offsetReadout(next.distance_km, guess, answer);
+        el.flagField.hidden = !next.flag;
+        el.flag.textContent = next.flag || "";
+        setCopied(false);
+        if (!el.curtain.open) {
+            el.curtain.showModal();
+        }
+
+        try {
+            if (!resultMapPromise) {
+                resultMapPromise = basemap(document.getElementById("result-map"))
+                    .then((map) => {
+                        resultSatellite = satelliteLayer(map);
+                        revealLayer(map);
+                        resultMap = map;
+                        return map;
+                    })
+                    .catch((error) => {
+                        resultMapPromise = null;
+                        throw error;
+                    });
+            }
+            await resultMapPromise;
+        } catch (error) {
+            if (state === next && el.curtain.open) {
+                toast("Result map unavailable.");
+            }
+            return;
+        }
+        if (state !== next || !el.curtain.open) {
+            return;
+        }
+        resultSatellite(satellite);
+
+        clearResultMarkers();
+        resultMap.resize();
+        const line = lineBetween(guess, answer);
+        const points = line.features[0].geometry.coordinates;
+        resultMap.getSource("reveal").setData(line);
+        resultMarkers = [
+            pinAt(resultMap, guess, "#f38ba8", "#d20f39", "Your guess"),
+            pinAt(
+                resultMap,
+                { lat: answer.lat, lon: points.at(-1)[0] },
+                "#a6e3a1",
+                "#40a02b",
+                "The answer",
+            ),
+        ];
+
+        resultMap.fitBounds(
+            points.reduce((bounds, point) => bounds.extend(point), new maplibregl.LngLatBounds()),
+            { padding: 46, maxZoom: 13, duration: 0 },
+        );
+    }
+
+    function closeCurtain() {
+        el.curtain.close();
+        clearResultMarkers();
+        if (state && state.solved) {
+            frameGuess(700);
+        } else {
+            clearGuess();
+            guessMap.jumpTo({ center: [0, 20], zoom: 1 });
+        }
+    }
+
+    clearGuess();
+    renderIcons();
+    navigation.installModeToggle();
+    document.body.classList.add("no-hud");
+    const initialState = refresh();
     guessMap = await basemap(el.map);
-    satelliteLayer(guessMap);
-    mapGestures(guessMap, el.map);
-    guessMap.on("click", function (event) {
+    await initialState;
+    if (state) {
+        render(state);
+    }
+    guessSatellite = satelliteLayer(guessMap);
+    mapGestures(guessMap, el.map, navigation);
+    guessMap.on("click", (event) => {
         setGuess(event.lngLat.wrap());
     });
 
-    const mapObserver = new ResizeObserver(function () {
+    const mapObserver = new ResizeObserver(() => {
         guessMap.stop();
         guessMap.resize();
         guessMap.redraw();
         clearTimeout(framePending);
-        framePending = setTimeout(function () {
+        framePending = setTimeout(() => {
             frameGuess(320);
         }, 140);
     });
@@ -527,24 +416,22 @@ function closeCurtain() {
     const mediaObserver = new ResizeObserver(fitMedia);
     mediaObserver.observe(el.pano);
     window.addEventListener("resize", fitMedia);
-    window.addEventListener("resize", function () {
-        paintGrip();
-        if (dockSize) {
-            sizeDock(dockSize.width, dockSize.height);
-        }
-    });
 
-    el.guess.addEventListener("click", function () {
+    el.guess.addEventListener("click", () => {
         if (state && state.solved) {
             showResult(state);
         } else {
-            submitGuess(false);
+            submitGuess();
         }
     });
     el.next.addEventListener("click", closeCurtain);
+    el.curtain.addEventListener("cancel", (event) => {
+        event.preventDefault();
+        closeCurtain();
+    });
     el.copy.addEventListener("click", copyFlag);
 
-    el.satellite.addEventListener("click", function () {
+    el.satellite.addEventListener("click", () => {
         satellite = !satellite;
         el.satellite.setAttribute("aria-pressed", String(satellite));
         el.satellite.title = satellite ? "Show map" : "Show satellite";
@@ -553,44 +440,33 @@ function closeCurtain() {
         el.basemapCredit.textContent = satellite
             ? "Imagery \u00a9 Esri, Maxar, Earthstar Geographics"
             : "Basemap \u00a9 CARTO \u00b7 \u00a9 OpenStreetMap contributors (ODbL)";
-        showSatellite(guessMap, satellite);
+        guessSatellite(satellite);
         if (resultMap) {
-            showSatellite(resultMap, satellite);
+            resultSatellite(satellite);
         }
     });
 
-    el.expand.addEventListener("click", function () {
-        setZoomed(!el.dock.classList.contains("zoomed"));
+    installDock(el, () => {
+        guessMap.resize();
+        frameGuess(0);
     });
 
-    restoreDock();
-    paintGrip();
-    el.grip.addEventListener("pointerdown", dragDock);
-    el.grip.addEventListener("dblclick", resetDock);
-    el.grip.addEventListener("keydown", nudgeDock);
-
-    const swallowed = [
-        "mousedown",
-        "pointerdown",
-        "touchstart",
-        "dblclick",
-        "wheel",
-        "contextmenu",
-    ];
-    swallowed.forEach(function (type) {
-        document.querySelectorAll(".map-controls, .coord-entry").forEach(function (node) {
-            node.addEventListener(type, function (event) {
-                event.stopPropagation();
+    ["click", "mousedown", "pointerdown", "touchstart", "dblclick", "wheel", "contextmenu"].forEach(
+        (type) => {
+            document.querySelectorAll(".map-controls, .coord-entry").forEach((node) => {
+                node.addEventListener(type, (event) => {
+                    event.stopPropagation();
+                });
             });
-        });
-    });
+        },
+    );
 
-    el.coordInput.addEventListener("input", function () {
+    el.coordInput.addEventListener("input", () => {
         el.coordEntry.classList.remove("invalid");
         refreshCoordApply();
     });
     el.coordInput.addEventListener("change", applyTypedCoordinates);
-    el.coordInput.addEventListener("keydown", function (event) {
+    el.coordInput.addEventListener("keydown", (event) => {
         if (event.key === "Enter") {
             event.preventDefault();
             event.stopPropagation();
@@ -602,69 +478,69 @@ function closeCurtain() {
             showCoordEntry(false);
         }
     });
-    el.coordToggle.addEventListener("click", function () {
+    el.coordToggle.addEventListener("click", () => {
         showCoordEntry(el.coordEntry.hidden);
     });
-    el.coordApply.addEventListener("click", function () {
+    el.coordApply.addEventListener("click", () => {
         if (applyTypedCoordinates()) {
             showCoordEntry(false);
         }
     });
 
-    el.mapHide.addEventListener("click", function () {
-        setMapVisible(false);
-    });
-    el.mapShow.addEventListener("click", function () {
-        setMapVisible(true);
-    });
-
-    el.zoomIn.addEventListener("click", function () {
+    el.zoomIn.addEventListener("click", () => {
         guessMap.zoomIn();
     });
-    el.zoomOut.addEventListener("click", function () {
+    el.zoomOut.addEventListener("click", () => {
         guessMap.zoomOut();
     });
 
-    el.panoIn.addEventListener("click", function () {
+    el.panoIn.addEventListener("click", () => {
         zoomPano(-12);
     });
-    el.panoOut.addEventListener("click", function () {
+    el.panoOut.addEventListener("click", () => {
         zoomPano(12);
     });
 
-    el.reset.addEventListener("click", async function () {
-        const { ok, body } = await api("api/reset", { method: "POST" });
-        if (!ok) {
-            toast("Could not reset");
+    el.reset.addEventListener("click", async () => {
+        if (busy) {
             return;
         }
-        el.curtain.hidden = true;
-        clearResultMarkers();
-        clearGuess();
-        guessMap.easeTo({ center: [0, 20], zoom: 1, duration: 400 });
-        render(body);
+        setBusy(true);
+        try {
+            const { ok, body } = await api("api/reset", { method: "POST" });
+            if (!ok) {
+                throw new Error("Could not reset");
+            }
+            closeCurtain();
+            clearGuess();
+            guessMap.easeTo({ center: [0, 20], zoom: 1, duration: 400 });
+            render(body);
+        } catch (error) {
+            toast("Could not reset. Try again.");
+        } finally {
+            setBusy(false);
+        }
     });
 
-    document.addEventListener("keydown", function (event) {
-        if (event.target instanceof HTMLInputElement) {
+    document.addEventListener("keydown", (event) => {
+        if (
+            event.defaultPrevented ||
+            event.target.closest("input, textarea, button, a, [contenteditable], [role=button]")
+        ) {
             return;
         }
         if (event.key !== "Enter") {
             return;
         }
-        if (!el.curtain.hidden) {
+        if (el.curtain.open) {
             closeCurtain();
         } else if (!el.guess.disabled && !(state && state.solved)) {
-            submitGuess(false);
+            submitGuess();
         }
     });
+}
 
-    document.body.classList.add("no-hud");
-    installModeToggle();
-    clearGuess();
-    renderIcons();
-    await refresh();
-})().catch(function (error) {
+main().catch((error) => {
     console.error(error);
-    loaderFailed(error.message || "Map unavailable");
+    createToast(document.getElementById("toast"))("Map unavailable. Reload to try again.");
 });

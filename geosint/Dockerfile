@@ -60,7 +60,7 @@ RUN mkdir -p /opt/geosint/static/vendor/lucide && \
 
 WORKDIR /opt/geosint
 
-COPY --chown=0:0 --chmod=0444 wsgi.py gunicorn.conf.py /opt/geosint/
+COPY --chown=0:0 --chmod=0444 wsgi.py media.py gunicorn.conf.py /opt/geosint/
 COPY --chmod=755 init /challenge/.init
 COPY --chown=0:0 templates/ /opt/geosint/templates/
 COPY --chown=0:0 static/css/ /opt/geosint/static/css/

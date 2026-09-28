@@ -106,15 +106,15 @@ test("satellite tiles suppress the provider's unavailable-image placeholder", as
 });
 
 test("sparse coverage caps zoom one level below the last available 256px tile", async () => {
-    const { satelliteLayer, showSatellite } = await loadBasemap(async (url) => {
+    const { satelliteLayer } = await loadBasemap(async (url) => {
         if (url.includes("/tilemap/19/")) {
             return new Response(null, { status: 422 });
         }
         return coverage(url, (zoom) => zoom <= 17);
     });
     const map = new MapStub();
-    satelliteLayer(map);
-    showSatellite(map, true);
+    const showSatellite = satelliteLayer(map);
+    showSatellite(true);
 
     await waitFor(() => map.getMaxZoom() < 18);
     assert.equal(map.getMaxZoom(), 16);
@@ -123,12 +123,12 @@ test("sparse coverage caps zoom one level below the last available 256px tile", 
 
 test("panning into better coverage restores the higher satellite zoom limit", async () => {
     let covered = false;
-    const { satelliteLayer, showSatellite } = await loadBasemap(async (url) =>
+    const { satelliteLayer } = await loadBasemap(async (url) =>
         coverage(url, (zoom) => covered || zoom <= 17)
     );
     const map = new MapStub();
-    satelliteLayer(map);
-    showSatellite(map, true);
+    const showSatellite = satelliteLayer(map);
+    showSatellite(true);
     await waitFor(() => map.getMaxZoom() === 16);
 
     covered = true;
@@ -142,7 +142,7 @@ test("panning into better coverage restores the higher satellite zoom limit", as
 test("turning satellite off restores normal zoom and ignores a late coverage result", async () => {
     let pending = null;
     let hold = false;
-    const { satelliteLayer, showSatellite } = await loadBasemap(
+    const { satelliteLayer } = await loadBasemap(
         async (url, { signal }) => {
             if (hold && url.includes("/tilemap/19/")) {
                 await new Promise((resolve) => {
@@ -153,15 +153,15 @@ test("turning satellite off restores normal zoom and ignores a late coverage res
         },
     );
     const map = new MapStub();
-    satelliteLayer(map);
-    showSatellite(map, true);
+    const showSatellite = satelliteLayer(map);
+    showSatellite(true);
     await waitFor(() => map.getMaxZoom() === 16);
 
     hold = true;
     map.center = { lng: 100, lat: 20 };
     map.emit("moveend");
     await waitFor(() => pending !== null);
-    showSatellite(map, false);
+    showSatellite(false);
     assert.equal(map.getMaxZoom(), 18);
     assert.equal(pending.signal.aborted, true);
     pending.resolve();
@@ -173,7 +173,7 @@ test("turning satellite off restores normal zoom and ignores a late coverage res
 
 test("removing the map aborts its pending satellite coverage request", async () => {
     let signal = null;
-    const { satelliteLayer, showSatellite } = await loadBasemap(
+    const { satelliteLayer } = await loadBasemap(
         (url, options) => {
             signal = options.signal;
             return new Promise((resolve, reject) => {
@@ -184,8 +184,8 @@ test("removing the map aborts its pending satellite coverage request", async () 
         },
     );
     const map = new MapStub();
-    satelliteLayer(map);
-    showSatellite(map, true);
+    const showSatellite = satelliteLayer(map);
+    showSatellite(true);
     await waitFor(() => signal !== null);
 
     map.emit("remove");

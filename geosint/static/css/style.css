@@ -26,6 +26,10 @@
     --dock-h-open: min(62vh, 560px);
     --dock-chrome: 64px;
     --dock-max-bottom: 30px;
+    --edge-top: max(14px, env(safe-area-inset-top));
+    --edge-right: max(14px, env(safe-area-inset-right));
+    --edge-bottom: max(14px, env(safe-area-inset-bottom));
+    --edge-left: max(14px, env(safe-area-inset-left));
 }
 
 * {
@@ -123,6 +127,12 @@ button:disabled {
     cursor: not-allowed;
 }
 
+button:focus-visible,
+a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}
+
 button.primary {
     height: 38px;
     padding: 0 18px;
@@ -214,10 +224,11 @@ button.primary.solved:disabled {
 
 #mapdock {
     position: absolute;
-    right: 14px;
-    bottom: 14px;
+    right: var(--edge-right);
+    bottom: var(--edge-bottom);
     z-index: 500;
     width: var(--dock-w);
+    max-width: calc(100vw - var(--edge-left) - var(--edge-right));
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -279,12 +290,12 @@ body.map-hidden #mapdock {
 #btn-mode {
     position: absolute;
     top: 60px;
-    right: 14px;
+    right: var(--edge-right);
     z-index: 350;
 }
 
 body.no-hud #btn-mode {
-    top: 14px;
+    top: var(--edge-top);
 }
 
 #btn-mode[aria-pressed="true"],
@@ -294,14 +305,15 @@ body.no-hud #btn-mode {
 
 #btn-map-show {
     position: absolute;
-    right: 14px;
-    bottom: 14px;
+    right: var(--edge-right);
+    bottom: var(--edge-bottom);
     z-index: 500;
 }
 
 #mapdock #map {
     position: relative;
     height: var(--dock-h);
+    max-height: calc(100dvh - var(--edge-top) - var(--edge-bottom) - var(--dock-chrome));
     border-radius: var(--radius-md);
     overflow: hidden;
     clip-path: inset(0 round var(--radius-md));
@@ -329,13 +341,14 @@ body.no-hud #btn-mode {
 }
 
 #mapdock.zoomed {
-    bottom: var(--dock-max-bottom);
-    width: calc(100vw - 28px);
+    bottom: max(var(--dock-max-bottom), var(--edge-bottom));
+    width: calc(100vw - var(--edge-left) - var(--edge-right));
 }
 
 #mapdock.zoomed #map {
     height: calc(
-        100vh - 14px - var(--dock-max-bottom) - var(--dock-chrome)
+        100dvh - var(--edge-top) - max(var(--dock-max-bottom), var(--edge-bottom)) -
+        var(--dock-chrome)
     );
 }
 
@@ -520,6 +533,11 @@ body.no-hud #btn-mode {
     pointer-events: none;
 }
 
+#loader.done .loader-spinner,
+#loader.done .loader-bar {
+    animation: none;
+}
+
 .loader-panel {
     display: flex;
     align-items: center;
@@ -599,7 +617,7 @@ body.no-hud #btn-mode {
     width: 100%;
 }
 
-#pano .leaflet-container {
+#pano.leaflet-container {
     background: #05070a;
 }
 
@@ -610,7 +628,7 @@ body.no-hud #btn-mode {
 
 #pano .leaflet-top.leaflet-left {
     top: 60px;
-    left: 14px;
+    left: var(--edge-left);
 }
 
 #pano .leaflet-top .leaflet-control {
@@ -650,7 +668,7 @@ body.no-hud #btn-mode {
 .pano-controls {
     position: absolute;
     top: 60px;
-    left: 14px;
+    left: var(--edge-left);
     z-index: 350;
     display: flex;
     flex-direction: column;
@@ -659,24 +677,40 @@ body.no-hud #btn-mode {
 
 body.no-hud .pano-controls,
 body.no-hud #pano .leaflet-top.leaflet-left {
-    top: 14px;
+    top: var(--edge-top);
 }
 
 #curtain {
-    position: absolute;
+    position: fixed;
     inset: 0;
     z-index: 900;
-    display: grid;
+    margin: 0;
+    width: 100%;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    border: 0;
+    color: var(--text);
     place-items: center;
-    padding: 20px;
+    padding: var(--edge-top) var(--edge-right) var(--edge-bottom) var(--edge-left);
     background: rgba(4, 6, 8, 0.72);
     -webkit-backdrop-filter: blur(6px);
     backdrop-filter: blur(6px);
 }
 
+#curtain[open] {
+    display: grid;
+}
+
+#curtain::backdrop {
+    background: transparent;
+}
+
 .card {
-    width: min(520px, 94vw);
-    overflow: hidden;
+    width: min(520px, 100%);
+    max-height: calc(100dvh - var(--edge-top) - var(--edge-bottom));
+    overflow: auto;
+    overscroll-behavior: contain;
     border-radius: var(--radius-lg);
     background: var(--material-strong);
     border: 1px solid var(--hairline);
@@ -691,6 +725,16 @@ body.no-hud #pano .leaflet-top.leaflet-left {
     border-bottom: 1px solid var(--hairline);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     clip-path: inset(0 round var(--radius-lg) var(--radius-lg) 0 0);
+}
+
+.map-unavailable::after {
+    content: "Basemap unavailable";
+    position: absolute;
+    inset: 40% 0 auto;
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+    pointer-events: none;
 }
 
 .result-body {
@@ -843,11 +887,19 @@ body.no-hud #pano .leaflet-top.leaflet-left {
     z-index: 300;
     display: flex;
     align-items: center;
-    padding: 0 14px 10px;
+    padding: 0 var(--edge-right) max(10px, env(safe-area-inset-bottom)) var(--edge-left);
     color: var(--text);
     font-size: 11px;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
     pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        transition-duration: 0s !important;
+    }
 }
 
 .guess-pin,

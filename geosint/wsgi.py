@@ -2,285 +2,81 @@
 
 import json
 import math
-import mimetypes
-import os
-import secrets
-import subprocess
 import threading
 import time
 from pathlib import Path
 
-from flask import Flask, Response, abort, jsonify, render_template, request
+from flask import Flask, abort, jsonify, render_template, request, send_file
+
+from media import Media
+
+
+def finite_number(value):
+    if isinstance(value, bool):
+        raise ValueError("Expected a number.")
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError("Expected a finite number.")
+    return number
+
+
+def distance_km(lat, lon, target_lat, target_lon):
+    h = (
+        math.sin(math.radians(lat - target_lat) / 2) ** 2
+        + math.cos(math.radians(target_lat))
+        * math.cos(math.radians(lat))
+        * math.sin(math.radians(lon - target_lon) / 2) ** 2
+    )
+    return 2 * 6371.0088 * math.asin(math.sqrt(min(1, max(0, h))))
+
+
+def load_config():
+    config = json.loads(Path("/challenge/config.json").read_text())
+    if not isinstance(config, dict):
+        raise ValueError("Challenge config must be an object.")
+    config["lat"] = finite_number(config["lat"])
+    config["lon"] = finite_number(config["lon"])
+    config["tolerance_km"] = finite_number(config.get("tolerance_km", 1))
+    if not (
+        -90 <= config["lat"] <= 90
+        and -180 <= config["lon"] <= 180
+        and config["tolerance_km"] > 0
+    ):
+        raise ValueError("Invalid challenge coordinates or tolerance.")
+    return config
+
+
+def load_flag():
+    flag = Path("/flag").read_text().strip()
+    if not flag:
+        raise ValueError("Flag is empty.")
+    return flag
+
 
 app = Flask(__name__)
-
-MEDIA = Path("/challenge/media")
-CONFIG = json.loads(Path("/challenge/config.json").read_text())
-
-LAT = float(CONFIG["lat"])
-LON = float(CONFIG["lon"])
-TOLERANCE = float(CONFIG.get("tolerance_km", 1))
-MEDIA_ID = secrets.token_hex(16)
-
-WEB_TYPES = {"JPEG": ".jpg", "PNG": ".png", "GIF": ".gif", "WEBP": ".webp"}
+app.config["MAX_CONTENT_LENGTH"] = 4096
 
 lock = threading.Lock()
-solved = False
-result = None
-last_guess = 0.0
+game = {"result": None, "last_guess": 0.0}
 
-
-def strip_jpeg(data):
-    out = bytearray(data[:2])
-    i = 2
-    while i + 4 <= len(data) and data[i] == 0xFF:
-        marker = data[i + 1]
-        if marker == 0xDA:
-            out += data[i:]
-            return bytes(out)
-        end = i + 2 + int.from_bytes(data[i + 2 : i + 4], "big")
-        if marker != 0xFE and not (0xE0 <= marker <= 0xEF and marker != 0xEE):
-            out += data[i:end]
-        i = end
-    return bytes(out)
-
-
-def strip_png(data):
-    out = bytearray(data[:8])
-    i = 8
-    while i + 8 <= len(data):
-        end = i + 12 + int.from_bytes(data[i : i + 4], "big")
-        if data[i + 4 : i + 8] not in (b"tEXt", b"iTXt", b"zTXt", b"eXIf", b"tIME"):
-            out += data[i:end]
-        i = end
-    return bytes(out)
-
-
-def strip(data):
-    if data[:2] == b"\xff\xd8":
-        return strip_jpeg(data)
-    if data[:8] == b"\x89PNG\r\n\x1a\n":
-        return strip_png(data)
-    return data
-
-
-def jpeg_size(data):
-    i = 2
-    while i + 9 <= len(data) and data[i] == 0xFF:
-        marker = data[i + 1]
-        if marker == 0xDA:
-            return None
-        if marker in (
-            0xC0,
-            0xC1,
-            0xC2,
-            0xC3,
-            0xC5,
-            0xC6,
-            0xC7,
-            0xC9,
-            0xCA,
-            0xCB,
-            0xCD,
-            0xCE,
-            0xCF,
-        ):
-            return (
-                int.from_bytes(data[i + 7 : i + 9], "big"),
-                int.from_bytes(data[i + 5 : i + 7], "big"),
-            )
-        i += 2 + int.from_bytes(data[i + 2 : i + 4], "big")
-    return None
-
-
-def image_size(data):
-    if data[:2] == b"\xff\xd8":
-        return jpeg_size(data)
-    if data[:8] == b"\x89PNG\r\n\x1a\n":
-        return (int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big"))
-    return None
-
-
-def media_files():
-    return sorted(path for path in MEDIA.iterdir() if path.is_file())
-
-
-def probe(path):
-    try:
-        done = subprocess.run(
-            [
-                "/usr/bin/identify",
-                "-quiet",
-                "-format",
-                "%m %w %h %[opaque] %[orientation]",
-                f"{path}[0]",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-
-    fields = done.stdout.split()
-    if done.returncode != 0 or len(fields) != 5:
-        return None
-
-    return {
-        "format": fields[0],
-        "width": int(fields[1]),
-        "height": int(fields[2]),
-        "alpha": fields[3] != "True",
-        "upright": fields[4] in ("TopLeft", "Undefined"),
-    }
-
-
-def transcode(path, target):
-    try:
-        done = subprocess.run(
-            [
-                "/usr/bin/magick",
-                "-quiet",
-                f"{path}[0]",
-                "-auto-orient",
-                "-strip",
-                f"{target}:-",
-            ],
-            capture_output=True,
-            timeout=300,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-
-    return done.stdout if done.returncode == 0 and done.stdout else None
-
-
-def prepare(path):
-    data = path.read_bytes()
-    info = probe(path)
-
-    if data[:2] == b"\xff\xd8":
-        native = ".jpg"
-    elif data[:8] == b"\x89PNG\r\n\x1a\n":
-        native = ".png"
-    else:
-        native = None
-
-    if native and (info is None or info["upright"]):
-        return native, strip(data)
-
-    if info is None:
-        raise RuntimeError(f"cannot identify {path.name}")
-
-    if info["format"] in WEB_TYPES:
-        target = info["format"]
-    else:
-        target = "PNG" if info["alpha"] else "JPEG"
-
-    output = transcode(path, target.lower())
-
-    if output is None:
-        raise RuntimeError(f"cannot convert {path.name}")
-
-    return WEB_TYPES[target], output
-
-
-def detect_kind():
-    if (MEDIA / "multires").is_dir():
-        return "multires"
-
-    files = media_files()
-    if set("fbudlr") <= {path.stem.lower() for path in files}:
-        return "cubemap"
-
-    if len(files) == 1:
-        info = probe(files[0])
-        size = (
-            (info["width"], info["height"])
-            if info
-            else image_size(files[0].read_bytes())
-        )
-        if size and abs(size[0] - 2 * size[1]) <= 2:
-            return "equirectangular"
-
-    return "image"
-
-
-def served_media():
-    if KIND == "multires":
-        return {}
-
-    files = media_files()
-
-    if KIND == "cubemap":
-        faces = {path.stem.lower(): path for path in files}
-        served = {}
-
-        for face in "fbudlr":
-            suffix, data = prepare(faces[face])
-            served[face + suffix] = data
-
-        return served
-
-    suffix, data = prepare(files[0])
-    return {("image" if KIND == "image" else "pano") + suffix: data}
-
-
-KIND = CONFIG.get("kind") or detect_kind()
-SERVED = served_media()
-FLAG = open("/flag").read().strip() if os.geteuid() == 0 else "pwn.college{fake_flag}"
-
-
-def media():
-    base = f"media/{MEDIA_ID}"
-
-    if KIND == "multires":
-        multires = json.loads((MEDIA / "multires" / "config.json").read_text())
-        multires = dict(multires.get("multiRes", multires))
-        path = multires.get("basePath", "").strip("/")
-        multires["basePath"] = f"{base}/multires/{path}".rstrip("/")
-        return {"kind": "pano", "type": "multires", "multiRes": multires}
-
-    names = list(SERVED)
-
-    if KIND == "cubemap":
-        return {
-            "kind": "pano",
-            "type": "cubemap",
-            "faces": [f"{base}/{name}" for name in names],
-        }
-
-    if KIND == "image":
-        return {"kind": "image", "url": f"{base}/{names[0]}"}
-    return {"kind": "pano", "type": "equirectangular", "url": f"{base}/{names[0]}"}
+CONFIG = load_config()
+MEDIA = Media(Path("/challenge/media"), CONFIG.get("kind"))
+FLAG = load_flag()
 
 
 def public_state():
-    if not solved:
-        return {"solved": False, "media": media()}
-    return {
-        "solved": True,
-        "media": media(),
-        "answer": {"lat": LAT, "lon": LON},
-        "guess": result["guess"],
-        "distance_km": result["distance_km"],
-        "flag": FLAG,
-    }
-
-
-def distance_km(lat, lon):
-    phi1, phi2 = math.radians(LAT), math.radians(lat)
-    dphi = math.radians(lat - LAT)
-    dlambda = math.radians(lon - LON)
-    h = (
-        math.sin(dphi / 2) ** 2
-        + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
-    )
-    return 2 * 6371.0088 * math.asin(math.sqrt(h))
+    result = game["result"]
+    state = {"solved": result is not None, "media": MEDIA.state}
+    if result is not None:
+        state.update(
+            answer={"lat": CONFIG["lat"], "lon": CONFIG["lon"]}, flag=FLAG, **result
+        )
+    return state
 
 
 @app.after_request
 def cache_policy(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
     if request.path.startswith(("/api/", "/media/")):
         response.headers["Cache-Control"] = "no-store, max-age=0"
     elif request.path.startswith("/static/js/"):
@@ -301,81 +97,65 @@ def asset(path):
     return f"static/{path}?v={version}"
 
 
-@app.route("/")
+@app.get("/")
 def index():
     return render_template("index.html")
 
 
-@app.route("/api/state")
+@app.get("/api/state")
 def state():
     with lock:
         return jsonify(public_state())
 
 
-@app.route("/api/reset", methods=["POST"])
+@app.post("/api/reset")
 def reset():
-    global solved, result
     with lock:
-        solved = False
-        result = None
+        game["result"] = None
         return jsonify(public_state())
 
 
-@app.route("/api/guess", methods=["POST"])
+@app.post("/api/guess")
 def guess():
-    global solved, result, last_guess
-
     body = request.get_json(silent=True) or {}
     try:
-        lat = float(body["lat"])
-        lon = float(body["lon"])
-    except (KeyError, TypeError, ValueError):
-        return jsonify({"error": "lat and lon required"}), 400
-    if not -90 <= lat <= 90 or not -180 <= lon <= 180:
-        return jsonify({"error": "coordinates out of range"}), 400
+        guess_lat = finite_number(body["lat"])
+        guess_lon = finite_number(body["lon"])
+    except (KeyError, TypeError, ValueError, OverflowError):
+        return jsonify(error="Latitude and longitude are required."), 400
+    if not -90 <= guess_lat <= 90 or not -180 <= guess_lon <= 180:
+        return jsonify(error="Coordinates are out of range."), 400
 
     with lock:
-        if solved:
-            return jsonify({"error": "already solved"}), 409
-
+        if game["result"] is not None:
+            return jsonify(error="Already solved."), 409
         now = time.monotonic()
-        wait = 1 - (now - last_guess)
+        wait = 1 - (now - game["last_guess"])
         if wait > 0:
-            return jsonify({"error": "too fast", "retry_after": round(wait, 2)}), 429
+            return jsonify(
+                error="Too many guesses. Try again.", retry_after=round(wait, 2)
+            ), 429
+        game["last_guess"] = now
+        distance = distance_km(guess_lat, guess_lon, CONFIG["lat"], CONFIG["lon"])
+        if distance > CONFIG["tolerance_km"]:
+            return jsonify(outcome="wrong", state=public_state())
+        game["result"] = {
+            "guess": {"lat": guess_lat, "lon": guess_lon},
+            "distance_km": round(distance, 3),
+        }
+        return jsonify(outcome="correct", state=public_state())
 
-        last_guess = now
-        distance = distance_km(lat, lon)
 
-        if distance > TOLERANCE:
-            return jsonify({"outcome": "wrong", "state": public_state()})
-
-        solved = True
-        result = {"guess": {"lat": lat, "lon": lon}, "distance_km": round(distance, 3)}
-        return jsonify({"outcome": "correct", "state": public_state()})
+@app.errorhandler(413)
+def request_too_large(error):
+    return jsonify(error="Request body is too large."), 413
 
 
-@app.route("/media/<media_id>/<path:name>")
+@app.get("/media/<media_id>/<path:name>")
 def media_file(media_id, name):
-    if media_id != MEDIA_ID:
+    if f"media/{media_id}" != MEDIA.base or name not in MEDIA.files:
         abort(404)
-
-    mimetype = mimetypes.guess_type(name)[0] or "application/octet-stream"
-
-    if KIND == "multires":
-        if not name.startswith("multires/"):
-            abort(404)
-
-        path = (MEDIA / name).resolve()
-        if not path.is_file() or MEDIA.resolve() not in path.parents:
-            abort(404)
-
-        return Response(strip(path.read_bytes()), mimetype=mimetype)
-
-    data = SERVED.get(name)
-    if data is None:
-        abort(404)
-
-    return Response(data, mimetype=mimetype)
+    return send_file(MEDIA.files[name], conditional=False, etag=False)
 
 
 application = app

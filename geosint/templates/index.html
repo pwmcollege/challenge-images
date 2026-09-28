@@ -2,23 +2,11 @@
 <html lang="en">
     <head>
         <meta charset="utf-8" />
-        <meta
-            name="viewport"
-            content="width=device-width, initial-scale=1, viewport-fit=cover"
-        />
-        <title>Geosint</title>
-        <link
-            rel="stylesheet"
-            href="{{ asset('vendor/leaflet/leaflet.css') }}"
-        />
-        <link
-            rel="stylesheet"
-            href="{{ asset('vendor/maplibre/maplibre-gl.css') }}"
-        />
-        <link
-            rel="stylesheet"
-            href="{{ asset('vendor/pannellum/pannellum.css') }}"
-        />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <title>GeoSINT</title>
+        <link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}" />
+        <link rel="stylesheet" href="{{ asset('vendor/maplibre/maplibre-gl.css') }}" />
+        <link rel="stylesheet" href="{{ asset('vendor/pannellum/pannellum.css') }}" />
         <link rel="stylesheet" href="{{ asset('css/style.css') }}" />
     </head>
     <body>
@@ -27,20 +15,10 @@
 
             <div class="pano-controls">
                 <div class="pair">
-                    <button
-                        id="btn-pano-in"
-                        class="glyph"
-                        title="Zoom in"
-                        aria-label="Zoom in"
-                    >
+                    <button id="btn-pano-in" class="glyph" title="Zoom in" aria-label="Zoom in">
                         <i data-lucide="plus" aria-hidden="true"></i>
                     </button>
-                    <button
-                        id="btn-pano-out"
-                        class="glyph"
-                        title="Zoom out"
-                        aria-label="Zoom out"
-                    >
+                    <button id="btn-pano-out" class="glyph" title="Zoom out" aria-label="Zoom out">
                         <i data-lucide="minus" aria-hidden="true"></i>
                     </button>
                 </div>
@@ -48,8 +26,7 @@
 
             <header id="hud" hidden>
                 <span class="chip" id="pill-threshold">
-                    <i data-lucide="target" aria-hidden="true"></i
-                    ><span>within - km</span>
+                    <i data-lucide="target" aria-hidden="true"></i><span>within - km</span>
                 </span>
             </header>
 
@@ -57,12 +34,8 @@
                 <div class="loader-panel">
                     <div class="loader-spinner" aria-hidden="true"></div>
                     <div class="loader-lines">
-                        <div class="loader-title" id="loader-title">
-                            Loading imagery
-                        </div>
-                        <div class="loader-detail" id="loader-detail">
-                            Starting
-                        </div>
+                        <div class="loader-title" id="loader-title">Loading imagery</div>
+                        <div class="loader-detail" id="loader-detail">Starting</div>
                     </div>
                 </div>
                 <div class="loader-track">
@@ -75,7 +48,7 @@
             <section id="mapdock" aria-label="Guess map">
                 <div
                     id="dock-grip"
-                    role="separator"
+                    role="button"
                     tabindex="0"
                     title="Resize map"
                     aria-label="Resize map"
@@ -146,10 +119,7 @@
                             title="Enter coordinates"
                             aria-label="Enter coordinates"
                         >
-                            <i
-                                data-lucide="locate-fixed"
-                                aria-hidden="true"
-                            ></i>
+                            <i data-lucide="locate-fixed" aria-hidden="true"></i>
                         </button>
                         <button
                             id="btn-reset"
@@ -177,26 +147,17 @@
                             aria-label="Place the pin"
                             disabled
                         >
-                            <i
-                                data-lucide="corner-down-left"
-                                aria-hidden="true"
-                            ></i>
+                            <i data-lucide="corner-down-left" aria-hidden="true"></i>
                         </button>
                     </div>
                 </div>
                 <button id="btn-guess" class="primary" disabled>
-                    <i data-lucide="map-pin" aria-hidden="true"></i
-                    ><span>Drop a pin</span>
+                    <i data-lucide="map-pin" aria-hidden="true"></i><span>Drop a pin</span>
                 </button>
             </section>
 
-            <div id="curtain" hidden>
-                <div
-                    class="card"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="result-title"
-                >
+            <dialog id="curtain" aria-labelledby="result-title">
+                <div class="card">
                     <div id="result-map"></div>
                     <div class="result-body">
                         <div class="result-head">
@@ -217,27 +178,18 @@
                                     title="Copy"
                                     aria-label="Copy flag"
                                 >
-                                    <i
-                                        data-lucide="copy"
-                                        aria-hidden="true"
-                                    ></i>
+                                    <i data-lucide="copy" aria-hidden="true"></i>
                                 </button>
                             </div>
                         </div>
                     </div>
                     <div class="result-actions">
-                        <button id="btn-next" class="primary">Done</button>
+                        <button id="btn-next" class="primary" autofocus>Done</button>
                     </div>
                 </div>
-            </div>
+            </dialog>
 
-            <button
-                id="btn-map-show"
-                class="glyph"
-                hidden
-                title="Show map"
-                aria-label="Show map"
-            >
+            <button id="btn-map-show" class="glyph" hidden title="Show map" aria-label="Show map">
                 <i data-lucide="map" aria-hidden="true"></i>
             </button>
 
@@ -261,10 +213,9 @@
 
             <footer id="credits">
                 <span id="basemap-credit"
-                    >Basemap &copy; CARTO &middot; &copy; OpenStreetMap
-                    contributors (ODbL)</span
-                >&nbsp;&middot; MapLibre (BSD-3) &middot; Leaflet (BSD-2)
-                &middot; Pannellum (MIT) &middot; Lucide (ISC)
+                    >Basemap &copy; CARTO &middot; &copy; OpenStreetMap contributors (ODbL)</span
+                >&nbsp;&middot; MapLibre (BSD-3) &middot; Leaflet (BSD-2) &middot; Pannellum (MIT)
+                &middot; Lucide (ISC)
             </footer>
         </div>
 

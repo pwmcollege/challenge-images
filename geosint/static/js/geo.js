@@ -1,4 +1,4 @@
-export function formatDistance(km) {
+function formatDistance(km) {
     if (km < 1) {
         return Math.round(km * 1000) + " m";
     }
@@ -15,14 +15,9 @@ export function greatCircle(from, to) {
     const lon1 = from.lon * toRad;
     const lat2 = to.lat * toRad;
     const lon2 = to.lon * toRad;
-    const d =
-        2 *
-        Math.asin(
-            Math.sqrt(
-                Math.sin((lat2 - lat1) / 2) ** 2 +
-                    Math.cos(lat1) * Math.cos(lat2) * Math.sin((lon2 - lon1) / 2) ** 2,
-            ),
-        );
+    const h = Math.sin((lat2 - lat1) / 2) ** 2 +
+        Math.cos(lat1) * Math.cos(lat2) * Math.sin((lon2 - lon1) / 2) ** 2;
+    const d = 2 * Math.asin(Math.sqrt(Math.min(1, Math.max(0, h))));
     if (!d) {
         return [
             [from.lat, from.lon],
@@ -51,7 +46,7 @@ export function greatCircle(from, to) {
     return points;
 }
 
-export function bearing(from, to) {
+function bearing(from, to) {
     const toRad = Math.PI / 180;
     const dLon = (to.lon - from.lon) * toRad;
     const lat1 = from.lat * toRad;
@@ -75,8 +70,12 @@ export function offsetReadout(km, guess, answer) {
         "west",
         "north-west",
     ];
-    const heading = compass[Math.round(bearing(answer, guess) / 45) % 8];
-    return formatDistance(km) + " " + heading + " of the target.";
+    return (
+        formatDistance(km) +
+        " " +
+        compass[Math.round(bearing(answer, guess) / 45) % 8] +
+        " of the target."
+    );
 }
 
 export function formatBytes(bytes) {
@@ -88,46 +87,69 @@ export function formatBytes(bytes) {
 
 export function parseCoordinates(text) {
     const input = String(text || "").trim();
-    if (!input) {
-        return null;
-    }
-
     const pattern =
-        /(\d+(?:\.\d+)?)\s*[°d:]\s*(?:(\d+(?:\.\d+)?)\s*['′m:]\s*)?(?:(\d+(?:\.\d+)?)\s*["″s]?\s*)?([NSEW])?/gi;
-    const dms = [...input.matchAll(pattern)].filter(function (m) {
-        return m[2] !== undefined || m[4];
-    });
+        /([+-]?(?:\d+(?:\.\d*)?|\.\d+))(?:\s*[°d:]\s*(?:(\d+(?:\.\d+)?)\s*['′m:]\s*(?:(\d+(?:\.\d+)?)\s*["″s]?)?)?)?/iy;
+    const values = [];
+    let position = 0;
 
-    if (dms.length >= 2) {
-        const values = dms.slice(0, 2).map(function (m) {
-            const decimal = Number(m[1]) + Number(m[2] || 0) / 60 + Number(m[3] || 0) / 3600;
-            const hemisphere = (m[4] || "").toUpperCase();
-            return {
-                value: "SW".includes(hemisphere) ? -decimal : decimal,
-                hemisphere: hemisphere,
-            };
-        });
-        let first = values[0];
-        let second = values[1];
-        if ("EW".includes(first.hemisphere) || "NS".includes(second.hemisphere)) {
-            [first, second] = [second, first];
+    for (let index = 0; index < 2; index++) {
+        const prefix = input.slice(position).match(/^([NSWE])\s*/i);
+        pattern.lastIndex = position + (prefix ? prefix[0].length : 0);
+        const match = pattern.exec(input);
+        if (!match) {
+            return null;
         }
-        return finite(first.value, second.value);
+        position = pattern.lastIndex;
+        const suffix = !prefix && input.slice(position).match(/^\s*([NSWE])/i);
+        if (suffix) {
+            position += suffix[0].length;
+        }
+        const hemisphere = (prefix?.[1] || suffix?.[1] || "").toUpperCase();
+        const minutes = Number(match[2] || 0);
+        const seconds = Number(match[3] || 0);
+        if (minutes >= 60 || seconds >= 60) {
+            return null;
+        }
+        const negative = match[1].startsWith("-");
+        if (
+            (negative && /^[NE]$/.test(hemisphere)) ||
+            (match[1].startsWith("+") && /^[SW]$/.test(hemisphere))
+        ) {
+            return null;
+        }
+        const sign = negative || /^[SW]$/.test(hemisphere) ? -1 : 1;
+        values.push({
+            value: sign * (Math.abs(Number(match[1])) + minutes / 60 + seconds / 3600),
+            axis: /^[NS]$/.test(hemisphere) ? "lat" : /^[EW]$/.test(hemisphere) ? "lon" : null,
+        });
+        if (index === 0) {
+            const separator = input.slice(position).match(/^(?:\s*[,;]\s*|\s+)/);
+            if (separator) {
+                position += separator[0].length;
+            } else if (!hemisphere && !/\s$/.test(match[0])) {
+                return null;
+            }
+        }
     }
-
-    const numbers = input.match(/-?\d+(?:\.\d+)?/g);
-    if (!numbers || numbers.length < 2) {
+    if (position !== input.length) {
         return null;
     }
-    return finite(Number(numbers[0]), Number(numbers[1]));
+    let [first, second] = values;
+    if (first.axis && first.axis === second.axis) {
+        return null;
+    }
+    if (first.axis === "lon" || second.axis === "lat") {
+        [first, second] = [second, first];
+    }
+    return finite(first.value, second.value);
 }
 
-export function finite(lat, lon) {
+function finite(lat, lon) {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
         return null;
     }
     if (Math.abs(lat) > 90 || Math.abs(lon) > 180) {
         return null;
     }
-    return { lat: lat, lon: lon };
+    return { lat, lon };
 }

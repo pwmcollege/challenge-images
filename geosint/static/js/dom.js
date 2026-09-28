@@ -1,36 +1,38 @@
-export const el = {
-    pano: document.getElementById("pano"),
-    toast: document.getElementById("toast"),
-    dock: document.getElementById("mapdock"),
-    map: document.getElementById("map"),
-    grip: document.getElementById("dock-grip"),
-    expand: document.getElementById("btn-expand"),
-    coordEntry: document.getElementById("coord-entry"),
-    coordToggle: document.getElementById("btn-coord"),
-    coordApply: document.getElementById("btn-coord-apply"),
-    coordInput: document.getElementById("coord-input"),
-    zoomIn: document.getElementById("btn-zoom-in"),
-    zoomOut: document.getElementById("btn-zoom-out"),
-    panoIn: document.getElementById("btn-pano-in"),
-    panoOut: document.getElementById("btn-pano-out"),
-    panoControls: document.querySelector(".pano-controls"),
-    loader: document.getElementById("loader"),
-    loaderTitle: document.getElementById("loader-title"),
-    loaderDetail: document.getElementById("loader-detail"),
-    loaderBar: document.getElementById("loader-bar"),
-    guess: document.getElementById("btn-guess"),
-    reset: document.getElementById("btn-reset"),
-    satellite: document.getElementById("btn-satellite"),
-    basemapCredit: document.getElementById("basemap-credit"),
-    mapHide: document.getElementById("btn-map-hide"),
-    mapShow: document.getElementById("btn-map-show"),
-    curtain: document.getElementById("curtain"),
-    distance: document.getElementById("result-distance"),
-    flagField: document.getElementById("flag-field"),
-    flag: document.getElementById("flag-box"),
-    copy: document.getElementById("btn-copy"),
-    next: document.getElementById("btn-next"),
-};
+export function getElements() {
+    return {
+        pano: document.getElementById("pano"),
+        toast: document.getElementById("toast"),
+        dock: document.getElementById("mapdock"),
+        map: document.getElementById("map"),
+        grip: document.getElementById("dock-grip"),
+        expand: document.getElementById("btn-expand"),
+        coordEntry: document.getElementById("coord-entry"),
+        coordToggle: document.getElementById("btn-coord"),
+        coordApply: document.getElementById("btn-coord-apply"),
+        coordInput: document.getElementById("coord-input"),
+        zoomIn: document.getElementById("btn-zoom-in"),
+        zoomOut: document.getElementById("btn-zoom-out"),
+        panoIn: document.getElementById("btn-pano-in"),
+        panoOut: document.getElementById("btn-pano-out"),
+        panoControls: document.querySelector(".pano-controls"),
+        loader: document.getElementById("loader"),
+        loaderTitle: document.getElementById("loader-title"),
+        loaderDetail: document.getElementById("loader-detail"),
+        loaderBar: document.getElementById("loader-bar"),
+        guess: document.getElementById("btn-guess"),
+        reset: document.getElementById("btn-reset"),
+        satellite: document.getElementById("btn-satellite"),
+        basemapCredit: document.getElementById("basemap-credit"),
+        mapHide: document.getElementById("btn-map-hide"),
+        mapShow: document.getElementById("btn-map-show"),
+        curtain: document.getElementById("curtain"),
+        distance: document.getElementById("result-distance"),
+        flagField: document.getElementById("flag-field"),
+        flag: document.getElementById("flag-box"),
+        copy: document.getElementById("btn-copy"),
+        next: document.getElementById("btn-next"),
+    };
+}
 
 export function renderIcons(root) {
     if (window.lucide) {
@@ -47,11 +49,14 @@ export function setIcon(button, name) {
     renderIcons(button);
 }
 
-export function toast(message) {
-    el.toast.textContent = message;
-    el.toast.classList.add("show", "bad");
-    clearTimeout(toast.timer);
-    toast.timer = setTimeout(function () {
-        el.toast.classList.remove("show");
-    }, 3400);
+export function createToast(node) {
+    let timer = null;
+    return (message) => {
+        node.textContent = message;
+        node.classList.add("show", "bad");
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            node.classList.remove("show");
+        }, 3400);
+    };
 }
