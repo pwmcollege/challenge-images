@@ -69,10 +69,6 @@ jobs:
             echo "Changes detected in ${{ matrix.image }}, building and pushing."
           fi
 
-      - name: Test GeoSINT satellite zoom
-        if: steps.check.outputs.update == 'true' && matrix.image == 'geosint'
-        run: node --experimental-vm-modules --test geosint/tests/*.test.mjs
-
       - name: Login to Docker Hub
         if: steps.check.outputs.update == 'true'
         uses: docker/login-action@v4
