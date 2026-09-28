@@ -78,13 +78,6 @@ export function offsetReadout(km, guess, answer) {
     );
 }
 
-export function formatBytes(bytes) {
-    if (bytes < 1024 * 1024) {
-        return Math.round(bytes / 1024) + " KB";
-    }
-    return (bytes / 1024 / 1024).toFixed(1) + " MB";
-}
-
 export function parseCoordinates(text) {
     const input = String(text || "").trim();
     const pattern =

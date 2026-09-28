@@ -11,7 +11,7 @@ export function createNavigation() {
         if (navMode === null) {
             try {
                 navMode = localStorage.getItem("pano-nav") || "pan";
-            } catch (error) {
+            } catch {
                 navMode = "pan";
             }
         }
@@ -25,7 +25,7 @@ export function createNavigation() {
         });
         try {
             localStorage.setItem("pano-nav", navMode);
-        } catch (error) {
+        } catch {
             return;
         }
     }
@@ -68,9 +68,7 @@ export function createNavigation() {
         };
     }
 
-    function installModeToggle() {
-        const button = document.getElementById("btn-mode");
-
+    function installModeToggle(button) {
         function paint() {
             button.setAttribute("aria-pressed", String(panMode()));
             button.title = panMode() ? "Scroll pans, pinch zooms" : "Scroll zooms";

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from flask import Flask, abort, jsonify, render_template, request, send_file
 
-from media import Media
+from media import PreparedMedia
 
 
 def finite_number(value):
@@ -60,7 +60,7 @@ lock = threading.Lock()
 game = {"result": None, "last_guess": 0.0}
 
 CONFIG = load_config()
-MEDIA = Media(Path("/challenge/media"), CONFIG.get("kind"))
+MEDIA = PreparedMedia(Path("/challenge/media"), CONFIG.get("kind"))
 FLAG = load_flag()
 
 
@@ -153,7 +153,7 @@ def request_too_large(error):
 
 @app.get("/media/<media_id>/<path:name>")
 def media_file(media_id, name):
-    if f"media/{media_id}" != MEDIA.base or name not in MEDIA.files:
+    if f"media/{media_id}" != MEDIA.base_url or name not in MEDIA.files:
         abort(404)
     return send_file(MEDIA.files[name], conditional=False, etag=False)
 

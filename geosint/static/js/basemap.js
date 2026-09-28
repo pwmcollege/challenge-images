@@ -32,7 +32,7 @@ function whenLoaded(map, ms) {
     });
 }
 
-export async function basemap(container) {
+export async function createBasemap(container) {
     let failure = null;
 
     for (let attempt = 1; attempt <= 2; attempt++) {
@@ -160,7 +160,7 @@ function satelliteStyle(layer) {
     ];
 }
 
-export function satelliteLayer(map) {
+export function installSatelliteLayer(map) {
     const satelliteAvailability = new Map();
     const layers = map.getStyle().layers;
     const anchor = layers.find((layer) => {
@@ -409,7 +409,7 @@ export function createPin(light, dark, className) {
     return wrapper;
 }
 
-export function mapGestures(map, container, { gestureControls, onModeChange }) {
+export function installMapGestures(map, container, { gestureControls, onModeChange }) {
     onModeChange((pan) => {
         if (pan) {
             map.scrollZoom.disable();
@@ -479,7 +479,7 @@ export function lineBetween(from, to) {
     };
 }
 
-export function revealLayer(map) {
+export function addRevealLayer(map) {
     map.addSource("reveal", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },

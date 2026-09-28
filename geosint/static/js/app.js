@@ -1,11 +1,11 @@
 import {
-    basemap,
+    addRevealLayer,
+    createBasemap,
     createPin,
+    installMapGestures,
+    installSatelliteLayer,
     lineBetween,
-    mapGestures,
     pinAt,
-    revealLayer,
-    satelliteLayer,
 } from "./basemap.js";
 import { createToast, getElements, renderIcons, setIcon } from "./dom.js";
 import { installDock } from "./dock.js";
@@ -22,9 +22,10 @@ async function main() {
     const { fitMedia, mountMedia, zoomPano } = createMedia(el, loader, navigation);
     const { loaderFailed } = loader;
     let guessMap = null;
+    let mapReady = false;
     let resultMap = null;
-    let guessSatellite = null;
-    let resultSatellite = null;
+    let setGuessSatelliteVisible = null;
+    let setResultSatelliteVisible = null;
     let resultMarkers = [];
     let guessMarker = null;
     let guessPressAt = null;
@@ -42,16 +43,17 @@ async function main() {
 
     function setBusy(value) {
         busy = value;
-        el.reset.disabled = value;
-        el.guess.disabled = value || (!guessMarker && !state?.solved);
-        el.coordToggle.disabled = value || Boolean(state?.solved);
-        el.coordInput.disabled = value;
+        el.reset.disabled = value || !mapReady;
+        el.guess.disabled = value || !mapReady || (!guessMarker && !state?.solved);
+        el.coordToggle.disabled = value || !mapReady || Boolean(state?.solved);
+        el.coordInput.disabled = value || !mapReady;
         refreshCoordApply();
         guessMarker?.setDraggable(!value && !state?.solved);
     }
 
     function refreshCoordApply() {
-        el.coordApply.disabled = busy || parseCoordinates(el.coordInput.value) === null;
+        el.coordApply.disabled = busy || !mapReady || Boolean(state?.solved) ||
+            parseCoordinates(el.coordInput.value) === null;
     }
 
     function writeCoordInput() {
@@ -211,7 +213,7 @@ async function main() {
                 throw new Error(body.error || "Could not load challenge");
             }
             render(body);
-        } catch (error) {
+        } catch {
             toast("Could not reach the server. Try again.");
             if (!mounted) {
                 loaderFailed("Could not load challenge. Reload to try again.");
@@ -295,7 +297,7 @@ async function main() {
 
         try {
             await navigator.clipboard.writeText(text);
-        } catch (e) {
+        } catch {
             const range = document.createRange();
             range.selectNodeContents(el.flag);
             const selection = window.getSelection();
@@ -306,7 +308,7 @@ async function main() {
                     toast("Select the flag and copy it manually.");
                     return;
                 }
-            } catch (fallback) {
+            } catch {
                 return;
             }
         }
@@ -322,16 +324,16 @@ async function main() {
         el.flagField.hidden = !next.flag;
         el.flag.textContent = next.flag || "";
         setCopied(false);
-        if (!el.curtain.open) {
-            el.curtain.showModal();
+        if (!el.resultDialog.open) {
+            el.resultDialog.showModal();
         }
 
         try {
             if (!resultMapPromise) {
-                resultMapPromise = basemap(document.getElementById("result-map"))
+                resultMapPromise = createBasemap(el.resultMap)
                     .then((map) => {
-                        resultSatellite = satelliteLayer(map);
-                        revealLayer(map);
+                        setResultSatelliteVisible = installSatelliteLayer(map);
+                        addRevealLayer(map);
                         resultMap = map;
                         return map;
                     })
@@ -341,16 +343,16 @@ async function main() {
                     });
             }
             await resultMapPromise;
-        } catch (error) {
-            if (state === next && el.curtain.open) {
+        } catch {
+            if (state === next && el.resultDialog.open) {
                 toast("Result map unavailable.");
             }
             return;
         }
-        if (state !== next || !el.curtain.open) {
+        if (state !== next || !el.resultDialog.open) {
             return;
         }
-        resultSatellite(satellite);
+        setResultSatelliteVisible(satellite);
 
         clearResultMarkers();
         resultMap.resize();
@@ -374,8 +376,8 @@ async function main() {
         );
     }
 
-    function closeCurtain() {
-        el.curtain.close();
+    function closeResultDialog() {
+        el.resultDialog.close();
         clearResultMarkers();
         if (state && state.solved) {
             frameGuess(700);
@@ -385,18 +387,25 @@ async function main() {
         }
     }
 
+    el.panoIn.addEventListener("click", () => {
+        zoomPano(-12);
+    });
+    el.panoOut.addEventListener("click", () => {
+        zoomPano(12);
+    });
+
     clearGuess();
     renderIcons();
-    navigation.installModeToggle();
+    navigation.installModeToggle(el.modeButton);
     document.body.classList.add("no-hud");
     const initialState = refresh();
-    guessMap = await basemap(el.map);
+    guessMap = await createBasemap(el.map);
     await initialState;
     if (state) {
         render(state);
     }
-    guessSatellite = satelliteLayer(guessMap);
-    mapGestures(guessMap, el.map, navigation);
+    setGuessSatelliteVisible = installSatelliteLayer(guessMap);
+    installMapGestures(guessMap, el.map, navigation);
     guessMap.on("click", (event) => {
         setGuess(event.lngLat.wrap());
     });
@@ -424,10 +433,10 @@ async function main() {
             submitGuess();
         }
     });
-    el.next.addEventListener("click", closeCurtain);
-    el.curtain.addEventListener("cancel", (event) => {
+    el.doneButton.addEventListener("click", closeResultDialog);
+    el.resultDialog.addEventListener("cancel", (event) => {
         event.preventDefault();
-        closeCurtain();
+        closeResultDialog();
     });
     el.copy.addEventListener("click", copyFlag);
 
@@ -440,9 +449,9 @@ async function main() {
         el.basemapCredit.textContent = satellite
             ? "Imagery \u00a9 Esri, Maxar, Earthstar Geographics"
             : "Basemap \u00a9 CARTO \u00b7 \u00a9 OpenStreetMap contributors (ODbL)";
-        guessSatellite(satellite);
+        setGuessSatelliteVisible(satellite);
         if (resultMap) {
-            resultSatellite(satellite);
+            setResultSatelliteVisible(satellite);
         }
     });
 
@@ -494,13 +503,6 @@ async function main() {
         guessMap.zoomOut();
     });
 
-    el.panoIn.addEventListener("click", () => {
-        zoomPano(-12);
-    });
-    el.panoOut.addEventListener("click", () => {
-        zoomPano(12);
-    });
-
     el.reset.addEventListener("click", async () => {
         if (busy) {
             return;
@@ -511,11 +513,11 @@ async function main() {
             if (!ok) {
                 throw new Error("Could not reset");
             }
-            closeCurtain();
+            closeResultDialog();
             clearGuess();
             guessMap.easeTo({ center: [0, 20], zoom: 1, duration: 400 });
             render(body);
-        } catch (error) {
+        } catch {
             toast("Could not reset. Try again.");
         } finally {
             setBusy(false);
@@ -532,12 +534,20 @@ async function main() {
         if (event.key !== "Enter") {
             return;
         }
-        if (el.curtain.open) {
-            closeCurtain();
+        if (el.resultDialog.open) {
+            closeResultDialog();
         } else if (!el.guess.disabled && !(state && state.solved)) {
             submitGuess();
         }
     });
+
+    mapReady = true;
+    [el.zoomIn, el.zoomOut, el.satellite, el.expand, el.mapHide, el.mapShow].forEach((button) => {
+        button.disabled = false;
+    });
+    el.grip.setAttribute("aria-disabled", "false");
+    el.grip.tabIndex = 0;
+    setBusy(busy);
 }
 
 main().catch((error) => {

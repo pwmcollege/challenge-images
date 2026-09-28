@@ -271,7 +271,15 @@ button.primary.solved:disabled {
     transition: opacity 0.15s ease;
 }
 
-#dock-grip:hover svg,
+#dock-grip[aria-disabled="true"] {
+    cursor: not-allowed;
+}
+
+#dock-grip[aria-disabled="true"] svg {
+    opacity: 0.2;
+}
+
+#dock-grip:hover:not([aria-disabled="true"]) svg,
 #dock-grip:focus-visible svg,
 #mapdock.resizing #dock-grip svg {
     opacity: 0.75;
@@ -453,8 +461,12 @@ body.no-hud #btn-mode {
     transition: background 0.15s ease;
 }
 
-.glyph:hover {
+.glyph:hover:not(:disabled) {
     background: var(--material-strong);
+}
+
+.glyph:disabled {
+    opacity: 0.45;
 }
 
 .glyph[aria-pressed="true"] {
@@ -487,7 +499,7 @@ body.no-hud #btn-mode {
     color: var(--muted);
 }
 
-.glyph.bare:hover {
+.glyph.bare:hover:not(:disabled) {
     background: none;
     color: var(--text);
 }
@@ -680,7 +692,7 @@ body.no-hud #pano .leaflet-top.leaflet-left {
     top: var(--edge-top);
 }
 
-#curtain {
+#result-dialog {
     position: fixed;
     inset: 0;
     z-index: 900;
@@ -698,11 +710,11 @@ body.no-hud #pano .leaflet-top.leaflet-left {
     backdrop-filter: blur(6px);
 }
 
-#curtain[open] {
+#result-dialog[open] {
     display: grid;
 }
 
-#curtain::backdrop {
+#result-dialog::backdrop {
     background: transparent;
 }
 

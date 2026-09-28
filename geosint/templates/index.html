@@ -49,7 +49,8 @@
                 <div
                     id="dock-grip"
                     role="button"
-                    tabindex="0"
+                    tabindex="-1"
+                    aria-disabled="true"
                     title="Resize map"
                     aria-label="Resize map"
                 >
@@ -67,6 +68,7 @@
                     <div class="map-controls left">
                         <button
                             id="btn-map-hide"
+                            disabled
                             class="glyph"
                             title="Hide map"
                             aria-label="Hide map"
@@ -75,6 +77,7 @@
                         </button>
                         <button
                             id="btn-expand"
+                            disabled
                             class="glyph"
                             aria-pressed="false"
                             title="Zoom map"
@@ -84,6 +87,7 @@
                         </button>
                         <button
                             id="btn-satellite"
+                            disabled
                             class="glyph"
                             aria-pressed="false"
                             title="Show satellite"
@@ -96,6 +100,7 @@
                         <div class="pair">
                             <button
                                 id="btn-zoom-in"
+                                disabled
                                 class="glyph"
                                 title="Zoom in"
                                 aria-label="Zoom in"
@@ -104,6 +109,7 @@
                             </button>
                             <button
                                 id="btn-zoom-out"
+                                disabled
                                 class="glyph"
                                 title="Zoom out"
                                 aria-label="Zoom out"
@@ -113,6 +119,7 @@
                         </div>
                         <button
                             id="btn-coord"
+                            disabled
                             class="glyph"
                             aria-pressed="false"
                             aria-controls="coord-entry"
@@ -123,6 +130,7 @@
                         </button>
                         <button
                             id="btn-reset"
+                            disabled
                             class="glyph"
                             title="Clear pin and recentre"
                             aria-label="Clear pin and recentre"
@@ -133,6 +141,7 @@
                     <div class="coord-entry" id="coord-entry" hidden>
                         <input
                             id="coord-input"
+                            disabled
                             type="text"
                             inputmode="decimal"
                             autocomplete="off"
@@ -156,7 +165,7 @@
                 </button>
             </section>
 
-            <dialog id="curtain" aria-labelledby="result-title">
+            <dialog id="result-dialog" aria-labelledby="result-title">
                 <div class="card">
                     <div id="result-map"></div>
                     <div class="result-body">
@@ -184,12 +193,13 @@
                         </div>
                     </div>
                     <div class="result-actions">
-                        <button id="btn-next" class="primary" autofocus>Done</button>
+                        <button id="btn-done" class="primary" autofocus>Done</button>
                     </div>
                 </div>
             </dialog>
 
-            <button id="btn-map-show" class="glyph" hidden title="Show map" aria-label="Show map">
+            <button id="btn-map-show" class="glyph" hidden disabled title="Show map"
+                aria-label="Show map">
                 <i data-lucide="map" aria-hidden="true"></i>
             </button>
 
@@ -223,6 +233,6 @@
         <script src="{{ asset('vendor/maplibre/maplibre-gl.js') }}"></script>
         <script src="{{ asset('vendor/pannellum/pannellum.js') }}"></script>
         <script src="{{ asset('vendor/lucide/lucide.min.js') }}"></script>
-        <script type="module" src="{{ asset('js/script.js') }}"></script>
+        <script type="module" src="{{ asset('js/app.js') }}"></script>
     </body>
 </html>

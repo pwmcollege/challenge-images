@@ -93,7 +93,7 @@ export function installDock(el, onShow) {
             } else {
                 localStorage.removeItem("map-size");
             }
-        } catch (error) {
+        } catch {
             return;
         }
     }
@@ -110,7 +110,7 @@ export function installDock(el, onShow) {
 
         try {
             saved = localStorage.getItem("map-size") || "";
-        } catch (error) {
+        } catch {
             saved = "";
         }
 

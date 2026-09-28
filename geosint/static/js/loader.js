@@ -1,4 +1,9 @@
-import { formatBytes } from "./geo.js";
+function formatBytes(bytes) {
+    if (bytes < 1024 * 1024) {
+        return Math.round(bytes / 1024) + " KB";
+    }
+    return (bytes / 1024 / 1024).toFixed(1) + " MB";
+}
 
 export function createLoader(el) {
     function loaderProgress(loaded, total) {

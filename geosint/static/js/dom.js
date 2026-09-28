@@ -4,6 +4,8 @@ export function getElements() {
         toast: document.getElementById("toast"),
         dock: document.getElementById("mapdock"),
         map: document.getElementById("map"),
+        resultMap: document.getElementById("result-map"),
+        modeButton: document.getElementById("btn-mode"),
         grip: document.getElementById("dock-grip"),
         expand: document.getElementById("btn-expand"),
         coordEntry: document.getElementById("coord-entry"),
@@ -25,12 +27,12 @@ export function getElements() {
         basemapCredit: document.getElementById("basemap-credit"),
         mapHide: document.getElementById("btn-map-hide"),
         mapShow: document.getElementById("btn-map-show"),
-        curtain: document.getElementById("curtain"),
+        resultDialog: document.getElementById("result-dialog"),
         distance: document.getElementById("result-distance"),
         flagField: document.getElementById("flag-field"),
         flag: document.getElementById("flag-box"),
         copy: document.getElementById("btn-copy"),
-        next: document.getElementById("btn-next"),
+        doneButton: document.getElementById("btn-done"),
     };
 }
 
