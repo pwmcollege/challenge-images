@@ -1,4 +1,8 @@
 **/__pycache__/
 **/*.pyc
 challenge/
-static/vendor/
+static/
+**/node_modules/
+**/dist/
+**/*.tsbuildinfo
+**/tests/

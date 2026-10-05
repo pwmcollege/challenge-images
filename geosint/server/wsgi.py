@@ -6,9 +6,9 @@ import threading
 import time
 from pathlib import Path
 
-from flask import Flask, abort, jsonify, render_template, request, send_file
+from flask import Flask, abort, jsonify, request, send_file
 
-from media import PreparedMedia
+from media import Media
 
 
 def finite_number(value):
@@ -53,14 +53,14 @@ def load_flag():
     return flag
 
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="../client/dist/static", static_url_path="/static")
 app.config["MAX_CONTENT_LENGTH"] = 4096
 
 lock = threading.Lock()
 game = {"result": None, "last_guess": 0.0}
 
 CONFIG = load_config()
-MEDIA = PreparedMedia(Path("/challenge/media"), CONFIG.get("kind"))
+MEDIA = Media(Path("/challenge/media"), CONFIG.get("kind"))
 FLAG = load_flag()
 
 
@@ -79,8 +79,11 @@ def cache_policy(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     if request.path.startswith(("/api/", "/media/")):
         response.headers["Cache-Control"] = "no-store, max-age=0"
-    elif request.path.startswith("/static/js/"):
-        response.headers["Cache-Control"] = "no-cache"
+    elif request.path.startswith("/static/assets/") and response.status_code in (
+        200,
+        304,
+    ):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
     elif request.path.startswith("/static/"):
         response.headers["Cache-Control"] = "public, max-age=3600"
     else:
@@ -88,18 +91,9 @@ def cache_policy(response):
     return response
 
 
-@app.template_global()
-def asset(path):
-    try:
-        version = int((Path(app.static_folder) / path).stat().st_mtime)
-    except OSError:
-        version = 0
-    return f"static/{path}?v={version}"
-
-
 @app.get("/")
-def index():
-    return render_template("index.html")
+def asset():
+    return send_file(Path(app.static_folder).parent / "index.html")
 
 
 @app.get("/api/state")

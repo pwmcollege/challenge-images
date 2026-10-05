@@ -1,4 +1,18 @@
-import { greatCircle } from "./geo.js";
+import { Map as MapLibreMap, Marker, setWorkerUrl } from "maplibre-gl";
+import type {
+    AllPaintProperties,
+    LayerSpecification,
+    LngLat,
+    StyleSpecification,
+    VisibilitySpecification,
+} from "maplibre-gl";
+import type { Feature, FeatureCollection, LineString } from "geojson";
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
+import "maplibre-gl/dist/maplibre-gl.css";
+import { type Coordinates, greatCircle } from "./geo.ts";
+import type { Navigation } from "./navigation.ts";
+
+setWorkerUrl(workerUrl);
 
 const satelliteService =
     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer";
@@ -6,7 +20,7 @@ const satelliteTileMaxZoom = 19;
 // MapLibre requests 256px raster tiles one level above its map zoom.
 const satelliteZoomOffset = 1;
 
-async function styleJson(signal) {
+async function styleJson(signal: AbortSignal): Promise<StyleSpecification> {
     const response = await fetch(
         "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
         { signal },
@@ -18,30 +32,49 @@ async function styleJson(signal) {
     return response.json();
 }
 
-function whenLoaded(map, ms) {
-    return new Promise((resolve, reject) => {
-        function loaded() {
+function whenLoaded(map: MapLibreMap, ms: number, signal?: AbortSignal) {
+    return new Promise<void>((resolve, reject) => {
+        function cleanup() {
             clearTimeout(timer);
+            map.off("load", loaded);
+            signal?.removeEventListener("abort", aborted);
+        }
+        function loaded() {
+            cleanup();
             resolve();
         }
+        function aborted() {
+            cleanup();
+            reject(signal?.reason);
+        }
         const timer = setTimeout(() => {
-            map.off("load", loaded);
+            cleanup();
             reject(new Error("Basemap timed out"));
         }, ms);
         map.once("load", loaded);
+        signal?.addEventListener("abort", aborted, { once: true });
+        if (signal?.aborted) {
+            aborted();
+        }
     });
 }
 
-export async function createBasemap(container) {
-    let failure = null;
+export async function createBasemap(
+    container: HTMLElement,
+    { signal }: { signal?: AbortSignal } = {},
+) {
+    let failure: unknown = null;
 
     for (let attempt = 1; attempt <= 2; attempt++) {
-        let map = null;
+        let map: MapLibreMap | null = null;
 
         try {
-            const style = await styleJson(AbortSignal.timeout(5000));
+            signal?.throwIfAborted();
+            const timeout = AbortSignal.timeout(5000);
+            const style = await styleJson(signal ? AbortSignal.any([signal, timeout]) : timeout);
+            signal?.throwIfAborted();
 
-            map = new maplibregl.Map({
+            map = new MapLibreMap({
                 container,
                 style,
                 center: [0, 20],
@@ -52,7 +85,7 @@ export async function createBasemap(container) {
                 dragRotate: false,
             });
             map.touchZoomRotate.disableRotation();
-            await whenLoaded(map, 10000);
+            await whenLoaded(map, 10000, signal);
             return map;
         } catch (error) {
             failure = error;
@@ -60,6 +93,7 @@ export async function createBasemap(container) {
             if (map) {
                 map.remove();
             }
+            signal?.throwIfAborted();
             if (attempt < 2) {
                 await new Promise((resolve) => {
                     setTimeout(resolve, 500 * attempt);
@@ -67,9 +101,10 @@ export async function createBasemap(container) {
             }
         }
     }
+    signal?.throwIfAborted();
     console.warn("Basemap unavailable", failure);
     container.classList.add("map-unavailable");
-    const map = new maplibregl.Map({
+    const map = new MapLibreMap({
         container,
         style: {
             version: 8,
@@ -90,11 +125,22 @@ export async function createBasemap(container) {
         dragRotate: false,
     });
     map.touchZoomRotate.disableRotation();
-    await whenLoaded(map, 5000);
+    try {
+        await whenLoaded(map, 5000, signal);
+    } catch (error) {
+        map.remove();
+        throw error;
+    }
     return map;
 }
 
-function satelliteStyle(layer) {
+type SatellitePaintProperty = "line-color" | "line-dasharray" | "line-opacity" | "line-width";
+type SatellitePaintValue = AllPaintProperties[SatellitePaintProperty];
+type SatelliteRule =
+    | ["visibility", VisibilitySpecification]
+    | [SatellitePaintProperty, SatellitePaintValue];
+
+function satelliteStyle(layer: LayerSpecification): SatelliteRule[] | null {
     const id = layer.id;
 
     if (layer.type === "symbol" || layer.type === "background") {
@@ -160,29 +206,49 @@ function satelliteStyle(layer) {
     ];
 }
 
-export function installSatelliteLayer(map) {
-    const satelliteAvailability = new Map();
+export function installSatelliteLayer(map: MapLibreMap) {
+    const satelliteAvailability = new Map<string, boolean>();
     const layers = map.getStyle().layers;
     const anchor = layers.find((layer) => {
         return layer.type !== "background";
     });
 
-    const satellitePlan = [];
+    const satellitePlan: (
+        | {
+            id: string;
+            prop: "visibility";
+            on: VisibilitySpecification;
+            off: VisibilitySpecification;
+        }
+        | {
+            id: string;
+            prop: SatellitePaintProperty;
+            on: SatellitePaintValue;
+            off: SatellitePaintValue;
+        }
+    )[] = [];
     layers.forEach((layer) => {
         const rules = satelliteStyle(layer);
 
         if (!rules) {
             return;
         }
-        rules.forEach((rule) => {
-            satellitePlan.push({
-                id: layer.id,
-                prop: rule[0],
-                on: rule[1],
-                off: rule[0] === "visibility"
-                    ? map.getLayoutProperty(layer.id, "visibility") || "visible"
-                    : map.getPaintProperty(layer.id, rule[0]),
-            });
+        rules.forEach(([prop, on]) => {
+            if (prop === "visibility") {
+                satellitePlan.push({
+                    id: layer.id,
+                    prop,
+                    on,
+                    off: map.getLayoutProperty(layer.id, "visibility") || "visible",
+                });
+            } else {
+                satellitePlan.push({
+                    id: layer.id,
+                    prop,
+                    on,
+                    off: map.getPaintProperty(layer.id, prop),
+                });
+            }
         });
     });
 
@@ -202,12 +268,18 @@ export function installSatelliteLayer(map) {
         anchor && anchor.id,
     );
 
-    const state = {
+    const state: {
+        abort: AbortController | null;
+        defaultMaxZoom: number;
+        enabled: boolean;
+        revision: number;
+        timer: ReturnType<typeof setTimeout> | undefined;
+    } = {
         abort: null,
         defaultMaxZoom: map.getMaxZoom(),
         enabled: false,
         revision: 0,
-        timer: null,
+        timer: undefined,
     };
     map.on("moveend", queueSatelliteLimit);
     map.on("remove", () => {
@@ -216,7 +288,7 @@ export function installSatelliteLayer(map) {
     });
     return showSatellite;
 
-    function showSatellite(on) {
+    function showSatellite(on: boolean) {
         state.enabled = on;
         if (on) {
             queueSatelliteLimit();
@@ -244,7 +316,7 @@ export function installSatelliteLayer(map) {
         });
     }
 
-    function satelliteTile(at, zoom) {
+    function satelliteTile(at: LngLat, zoom: number) {
         const count = Math.pow(2, zoom);
         const lon = ((((at.lng + 180) % 360) + 360) % 360) - 180;
         const lat = Math.max(-85.051129, Math.min(85.051129, at.lat));
@@ -259,15 +331,23 @@ export function installSatelliteLayer(map) {
         };
     }
 
-    async function hasSatelliteTile(at, zoom, signal) {
+    async function hasSatelliteTile(
+        at: LngLat,
+        zoom: number,
+        signal: AbortSignal,
+    ): Promise<boolean> {
         const tile = satelliteTile(at, zoom);
         const key = zoom + "/" + tile.y + "/" + tile.x;
 
         if (satelliteAvailability.size >= 512) {
-            satelliteAvailability.delete(satelliteAvailability.keys().next().value);
+            const oldest = satelliteAvailability.keys().next().value;
+            if (oldest !== undefined) {
+                satelliteAvailability.delete(oldest);
+            }
         }
-        if (satelliteAvailability.has(key)) {
-            return satelliteAvailability.get(key);
+        const cached = satelliteAvailability.get(key);
+        if (cached !== undefined) {
+            return cached;
         }
 
         const url = satelliteService + "/tilemap/" + key + "/1/1?f=json";
@@ -280,13 +360,13 @@ export function installSatelliteLayer(map) {
             throw new Error("Satellite coverage returned " + response.status);
         }
 
-        const result = await response.json();
-        const available = result.valid !== false && result.data && result.data[0] === 1;
+        const result: { valid?: boolean; data?: number[] } = await response.json();
+        const available = result.valid !== false && result.data?.[0] === 1;
         satelliteAvailability.set(key, available);
         return available;
     }
 
-    async function updateSatelliteLimit(revision) {
+    async function updateSatelliteLimit(revision: number) {
         if (!state.enabled || state.revision !== revision) {
             return;
         }
@@ -315,7 +395,7 @@ export function installSatelliteLayer(map) {
                 }
             }
         } catch (error) {
-            if (error.name !== "AbortError") {
+            if (!abort.signal.aborted) {
                 console.warn("Could not check satellite coverage", error);
             }
             return;
@@ -350,22 +430,22 @@ export function installSatelliteLayer(map) {
             state.abort = null;
         }
         state.timer = setTimeout(() => {
-            state.timer = null;
+            state.timer = undefined;
             updateSatelliteLimit(revision);
         }, 80);
     }
 }
 
-function svgNode(name, attributes) {
+function svgNode(name: string, attributes: Record<string, string>) {
     const node = document.createElementNS("http://www.w3.org/2000/svg", name);
 
-    Object.keys(attributes).forEach((key) => {
-        node.setAttribute(key, attributes[key]);
+    Object.entries(attributes).forEach(([key, value]) => {
+        node.setAttribute(key, value);
     });
     return node;
 }
 
-export function createPin(light, dark, className) {
+export function createPin(light: string, dark: string, className: string) {
     const id = "pin-grad-" + crypto.getRandomValues(new Uint32Array(2)).join("-");
     const gradient = svgNode("linearGradient", {
         id,
@@ -409,8 +489,12 @@ export function createPin(light, dark, className) {
     return wrapper;
 }
 
-export function installMapGestures(map, container, { gestureControls, onModeChange }) {
-    onModeChange((pan) => {
+export function installMapGestures(
+    map: MapLibreMap,
+    container: HTMLElement,
+    { gestureControls, onModeChange }: Navigation,
+) {
+    const unsubscribe = onModeChange((pan) => {
         if (pan) {
             map.scrollZoom.disable();
         } else {
@@ -418,7 +502,7 @@ export function installMapGestures(map, container, { gestureControls, onModeChan
         }
     });
 
-    gestureControls(container, {
+    const destroy = gestureControls(container, {
         glide: false,
         rubberband: 0,
         fromScale() {
@@ -435,7 +519,7 @@ export function installMapGestures(map, container, { gestureControls, onModeChan
         },
         zoom(scale, origin) {
             const rect = container.getBoundingClientRect();
-            const point = [origin[0] - rect.left, origin[1] - rect.top];
+            const point: [number, number] = [origin[0] - rect.left, origin[1] - rect.top];
             const next = Math.min(
                 map.getMaxZoom(),
                 Math.max(map.getMinZoom(), map.getMinZoom() + Math.log2(scale)),
@@ -448,10 +532,20 @@ export function installMapGestures(map, container, { gestureControls, onModeChan
             });
         },
     });
+    return () => {
+        unsubscribe();
+        destroy();
+    };
 }
 
-export function pinAt(map, at, light, dark, title) {
-    const marker = new maplibregl.Marker({
+export function pinAt(
+    map: MapLibreMap,
+    at: Coordinates,
+    light: string,
+    dark: string,
+    title: string,
+) {
+    const marker = new Marker({
         element: createPin(light, dark, "result-pin"),
         anchor: "bottom",
     })
@@ -461,7 +555,12 @@ export function pinAt(map, at, light, dark, title) {
     return marker;
 }
 
-export function lineBetween(from, to) {
+type RevealLine = Omit<LineString, "coordinates"> & { coordinates: [number, number][] };
+
+export function lineBetween(
+    from: Coordinates,
+    to: Coordinates,
+): FeatureCollection<RevealLine> & { features: [Feature<RevealLine>] } {
     return {
         type: "FeatureCollection",
         features: [
@@ -479,7 +578,7 @@ export function lineBetween(from, to) {
     };
 }
 
-export function addRevealLayer(map) {
+export function addRevealLayer(map: MapLibreMap) {
     map.addSource("reveal", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },

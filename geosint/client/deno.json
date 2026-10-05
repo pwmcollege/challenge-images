@@ -1,0 +1,10 @@
+{
+    "nodeModulesDir": "manual",
+    "tasks": {
+        "check": "deno fmt --check src vite.config.ts tsconfig.json tsconfig.app.json tsconfig.node.json deno.json package.json .oxlintrc.json index.html && deno task lint && deno task typecheck"
+    },
+    "fmt": {
+        "indentWidth": 4,
+        "lineWidth": 100
+    }
+}

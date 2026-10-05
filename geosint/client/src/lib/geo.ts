@@ -1,4 +1,9 @@
-function formatDistance(km) {
+export interface Coordinates {
+    lat: number;
+    lon: number;
+}
+
+function formatDistance(km: number) {
     if (km < 1) {
         return Math.round(km * 1000) + " m";
     }
@@ -8,7 +13,7 @@ function formatDistance(km) {
     return Math.round(km).toLocaleString() + " km";
 }
 
-export function greatCircle(from, to) {
+export function greatCircle(from: Coordinates, to: Coordinates): [number, number][] {
     const toRad = Math.PI / 180;
     const toDeg = 180 / Math.PI;
     const lat1 = from.lat * toRad;
@@ -25,8 +30,8 @@ export function greatCircle(from, to) {
         ];
     }
 
-    const points = [];
-    let previousLon = null;
+    const points: [number, number][] = [];
+    let previousLon: number | null = null;
     let offset = 0;
     for (let i = 0; i <= 96; i++) {
         const f = i / 96;
@@ -46,7 +51,7 @@ export function greatCircle(from, to) {
     return points;
 }
 
-function bearing(from, to) {
+function bearing(from: Coordinates, to: Coordinates) {
     const toRad = Math.PI / 180;
     const dLon = (to.lon - from.lon) * toRad;
     const lat1 = from.lat * toRad;
@@ -56,7 +61,7 @@ function bearing(from, to) {
     return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 }
 
-export function offsetReadout(km, guess, answer) {
+export function offsetReadout(km: number, guess: Coordinates, answer: Coordinates) {
     if (km < 0.002) {
         return "On target.";
     }
@@ -78,22 +83,22 @@ export function offsetReadout(km, guess, answer) {
     );
 }
 
-export function parseCoordinates(text) {
+export function parseCoordinates(text: string): Coordinates | null {
     const input = String(text || "").trim();
     const pattern =
         /([+-]?(?:\d+(?:\.\d*)?|\.\d+))(?:\s*[°d:]\s*(?:(\d+(?:\.\d+)?)\s*['′m:]\s*(?:(\d+(?:\.\d+)?)\s*["″s]?)?)?)?/iy;
-    const values = [];
+    const values: { value: number; axis: "lat" | "lon" | null }[] = [];
     let position = 0;
 
     for (let index = 0; index < 2; index++) {
         const prefix = input.slice(position).match(/^([NSWE])\s*/i);
         pattern.lastIndex = position + (prefix ? prefix[0].length : 0);
         const match = pattern.exec(input);
-        if (!match) {
+        if (!match || match[1] === undefined) {
             return null;
         }
         position = pattern.lastIndex;
-        const suffix = !prefix && input.slice(position).match(/^\s*([NSWE])/i);
+        const suffix = prefix ? null : input.slice(position).match(/^\s*([NSWE])/i);
         if (suffix) {
             position += suffix[0].length;
         }
@@ -128,6 +133,9 @@ export function parseCoordinates(text) {
         return null;
     }
     let [first, second] = values;
+    if (!first || !second) {
+        return null;
+    }
     if (first.axis && first.axis === second.axis) {
         return null;
     }
@@ -137,7 +145,7 @@ export function parseCoordinates(text) {
     return finite(first.value, second.value);
 }
 
-function finite(lat, lon) {
+function finite(lat: number, lon: number): Coordinates | null {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
         return null;
     }

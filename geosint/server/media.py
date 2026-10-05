@@ -78,7 +78,7 @@ def _multires_path(value: object) -> Path:
     return path
 
 
-class PreparedMedia:
+class Media:
     def __init__(self, root: Path, kind: str | None = None) -> None:
         self.root = root.resolve()
         self.cache_dir = Path(tempfile.mkdtemp(prefix="geosint-media-"))

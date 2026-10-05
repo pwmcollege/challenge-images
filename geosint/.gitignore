@@ -1,4 +1,7 @@
 challenge/
-static/vendor/
 __pycache__/
 *.pyc
+node_modules/
+client/dist/
+*.tsbuildinfo
+static/vendor/

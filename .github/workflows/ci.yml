@@ -48,10 +48,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Check if image should be updated
         id: check
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             if [ "${{ github.event.inputs.image }}" == "${{ matrix.image }}" ]; then
@@ -61,12 +63,27 @@ jobs:
               echo "update=false" >> $GITHUB_OUTPUT
               echo "Manual trigger selected ${{ github.event.inputs.image }}, skipping ${{ matrix.image }}."
             fi
-          elif git diff --quiet HEAD~1 -- "${{ matrix.image }}"; then
-            echo "update=false" >> $GITHUB_OUTPUT
-            echo "No changes detected in ${{ matrix.image }}, skipping."
           else
-            echo "update=true" >> $GITHUB_OUTPUT
-            echo "Changes detected in ${{ matrix.image }}, building and pushing."
+            if [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+              BEFORE_SHA=$(git hash-object -w -t tree /dev/null)
+            elif [ -z "$BEFORE_SHA" ]; then
+              echo "::error::Missing previous commit; cannot determine which images changed."
+              exit 1
+            elif ! git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
+              git fetch --no-tags --depth=1 origin "$BEFORE_SHA" || {
+                echo "::error::Cannot fetch the previous commit; skipping image builds."
+                exit 1
+              }
+            fi
+
+            changed=$(git diff --name-only "$BEFORE_SHA" HEAD -- "${{ matrix.image }}" bash.bashrc) || exit 1
+            if [ -n "$changed" ]; then
+              echo "update=true" >> $GITHUB_OUTPUT
+              echo "Changes detected in ${{ matrix.image }}, building and pushing."
+            else
+              echo "update=false" >> $GITHUB_OUTPUT
+              echo "No changes detected in ${{ matrix.image }}, skipping."
+            fi
           fi
 
       - name: Login to Docker Hub
