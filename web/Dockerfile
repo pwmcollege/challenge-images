@@ -22,8 +22,7 @@ RUN curl -fsSL https://pgp.mongodb.com/server-8.0.asc | \
     echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | \
     tee /etc/apt/sources.list.d/mongodb-org-8.0.list
 
-RUN add-apt-repository -y ppa:mozillateam/ppa && \
-    add-apt-repository -y ppa:xtradeb/apps
+RUN add-apt-repository -y ppa:mozillateam/ppa
 
 RUN cat <<'EOF' > /etc/apt/preferences.d/mozilla-firefox
 Package: *
@@ -41,8 +40,6 @@ RUN apt-get update && \
     binutils \
     build-essential \
     ca-certificates \
-    chromium \
-    chromium-driver \
     cmake \
     default-libmysqlclient-dev \
     dnsutils \
@@ -130,6 +127,13 @@ RUN apt-get update && \
     zsh \
     zstd \
     && rm -rf /var/lib/apt/lists/*
+
+COPY --from=pwmcollege/chromium:latest /chromium_*.deb /tmp/
+COPY --from=pwmcollege/chromium:latest /chromedriver /usr/bin/chromedriver
+
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y /tmp/chromium_*.deb && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN wget -q -O - "https://github.com/mozilla/geckodriver/releases/download/v${GECKODRIVER_VER}/geckodriver-v${GECKODRIVER_VER}-linux64.tar.gz" | tar xz -C /usr/local/bin
 
