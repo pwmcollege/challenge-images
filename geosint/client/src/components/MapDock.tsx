@@ -32,6 +32,7 @@ import {
 } from "../lib/basemap.ts";
 import { type Coordinates, parseCoordinates } from "../lib/geo.ts";
 import { useDock } from "../hooks/useDock.ts";
+import Button from "./Button.tsx";
 import type { ChallengeState } from "../types.ts";
 import type { Navigation } from "../lib/navigation.ts";
 
@@ -319,7 +320,7 @@ export default function MapDock({
                 id="mapdock"
                 aria-label="Guess map"
                 ref={dockRef}
-                className={dock.className}
+                className={`flex flex-col gap-2 rounded-lg border border-solid border-hairline bg-material p-2 shadow-control glass ${dock.className}`}
                 style={dock.style}
                 inert={!dock.visible}
             >
@@ -349,26 +350,24 @@ export default function MapDock({
                     <div
                         id="map-canvas"
                         ref={canvasRef}
-                        className="absolute inset-0 rounded-[inherit]"
                     />
-                    <div className="map-controls left">
-                        <button
+                    <div className="map-controls absolute top-2 left-2 z-10 flex flex-col flex-wrap content-start items-start gap-2">
+                        <Button
                             type="button"
                             id="btn-map-hide"
                             ref={hideRef}
                             disabled={!ready}
-                            className="glyph"
                             title="Hide map"
                             aria-label="Hide map"
                             onClick={dock.hide}
                         >
                             <X aria-hidden="true" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="button"
                             id="btn-expand"
+                            className="aria-pressed:text-accent"
                             disabled={!ready}
-                            className="glyph"
                             aria-pressed={dock.zoomed}
                             title={dock.zoomed ? "Restore map size" : "Zoom map"}
                             aria-label={dock.zoomed ? "Restore map size" : "Zoom map"}
@@ -377,12 +376,11 @@ export default function MapDock({
                             {dock.zoomed
                                 ? <Minimize2 aria-hidden="true" />
                                 : <Maximize2 aria-hidden="true" />}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="button"
                             id="btn-satellite"
                             disabled={!ready}
-                            className="glyph"
                             aria-pressed={satellite}
                             title={satellite ? "Show map" : "Show satellite"}
                             aria-label={satellite ? "Show map" : "Show satellite"}
@@ -391,38 +389,36 @@ export default function MapDock({
                             {satellite
                                 ? <Satellite aria-hidden="true" />
                                 : <Road aria-hidden="true" />}
-                        </button>
+                        </Button>
                     </div>
-                    <div className="map-controls">
-                        <div className="pair">
-                            <button
+                    <div className="map-controls absolute top-2 right-2 z-10 flex flex-col flex-wrap-reverse content-start items-end gap-2">
+                        <div className="flex flex-col [&>button:first-child]:rounded-b-none [&>button:first-child]:border-b-separator [&>button:last-child]:rounded-t-none [&>button:last-child]:border-t-0">
+                            <Button
                                 type="button"
                                 id="btn-zoom-in"
                                 disabled={!ready}
-                                className="glyph"
                                 title="Zoom in"
                                 aria-label="Zoom in"
                                 onClick={() => mapRef.current?.zoomIn()}
                             >
                                 <Plus aria-hidden="true" />
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="button"
                                 id="btn-zoom-out"
                                 disabled={!ready}
-                                className="glyph"
                                 title="Zoom out"
                                 aria-label="Zoom out"
                                 onClick={() => mapRef.current?.zoomOut()}
                             >
                                 <Minus aria-hidden="true" />
-                            </button>
+                            </Button>
                         </div>
-                        <button
+                        <Button
                             type="button"
                             id="btn-coord"
+                            className="aria-pressed:text-accent"
                             disabled={busy || !ready || solved}
-                            className="glyph"
                             aria-pressed={coordinateOpen}
                             aria-controls="coord-entry"
                             title="Enter coordinates"
@@ -433,26 +429,28 @@ export default function MapDock({
                             }}
                         >
                             <LocateFixed aria-hidden="true" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="button"
                             id="btn-reset"
                             disabled={busy || !ready}
-                            className="glyph"
                             title="Clear pin and recentre"
                             aria-label="Clear pin and recentre"
                             onClick={reset}
                         >
                             <RotateCcw aria-hidden="true" />
-                        </button>
+                        </Button>
                     </div>
                     <div
-                        className={"coord-entry" + (invalid ? " invalid" : "")}
+                        className={`absolute inset-x-2 bottom-2 z-12 flex h-control items-center gap-1.5 rounded-md border border-solid bg-material pr-1.5 pl-3 shadow-control glass ${
+                            invalid ? "border-bad" : "border-hairline focus-within:border-accent"
+                        }`}
                         id="coord-entry"
                         hidden={!coordinateOpen}
                     >
                         <input
                             id="coord-input"
+                            className="min-w-0 flex-1 select-text border-0 border-none bg-transparent text-foreground tabular-nums outline-none placeholder:text-muted placeholder:opacity-70"
                             ref={inputRef}
                             disabled={busy || !ready}
                             type="text"
@@ -485,10 +483,11 @@ export default function MapDock({
                                 }
                             }}
                         />
-                        <button
+                        <Button
                             type="button"
                             id="btn-coord-apply"
-                            className="glyph bare"
+                            variant="bare"
+                            className="size-6.5 rounded-sm text-muted enabled:text-accent enabled:hover:bg-accent/16 disabled:opacity-30"
                             title="Place the pin"
                             aria-label="Place the pin"
                             disabled={busy || !ready || solved ||
@@ -500,14 +499,14 @@ export default function MapDock({
                             }}
                         >
                             <CornerDownLeft aria-hidden="true" />
-                        </button>
+                        </Button>
                     </div>
                 </div>
-                <button
+                <Button
                     type="button"
                     id="btn-guess"
-                    className={"primary" +
-                        (solved ? " solved" : guessStatus === "wrong" ? " miss" : "")}
+                    variant={solved ? "solved" : guessStatus === "wrong" ? "wrong" : "primary"}
+                    className="w-full"
                     disabled={busy || !ready || (!selection && !solved)}
                     title={solved ? "Show the result again" : ""}
                     onClick={onSubmit}
@@ -522,13 +521,13 @@ export default function MapDock({
                             ? "Guess"
                             : "Drop a pin"}
                     </span>
-                </button>
+                </Button>
             </section>
-            <button
+            <Button
                 type="button"
                 id="btn-map-show"
                 ref={showRef}
-                className="glyph"
+                className="absolute right-(--edge-right) bottom-(--edge-bottom) z-500"
                 hidden={dock.visible}
                 disabled={!ready}
                 title="Show map"
@@ -536,7 +535,7 @@ export default function MapDock({
                 onClick={dock.show}
             >
                 <Map aria-hidden="true" />
-            </button>
+            </Button>
         </>
     );
 }

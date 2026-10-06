@@ -5,6 +5,9 @@
         "typescript",
         "oxc"
     ],
+    "jsPlugins": [
+        "@shadcn/lint"
+    ],
     "rules": {
         "react/rules-of-hooks": "error",
         "react/only-export-components": [
@@ -12,6 +15,9 @@
             {
                 "allowConstantExport": true
             }
-        ]
+        ],
+        "shadcn/no-raw-colors": "error",
+        "shadcn/no-arbitrary-values": "error",
+        "shadcn/no-unknown-classes": "error"
     }
 }

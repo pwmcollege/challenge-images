@@ -10,6 +10,7 @@ import {
     pinAt,
 } from "../lib/basemap.ts";
 import { offsetReadout } from "../lib/geo.ts";
+import Button from "./Button.tsx";
 import type { ChallengeState } from "../types.ts";
 
 interface ResultDialogProps {
@@ -156,6 +157,7 @@ export default function ResultDialog(
         <dialog
             ref={dialogRef}
             id="result-dialog"
+            className="fixed inset-0 z-900 m-0 h-dvh max-h-none w-full max-w-none place-items-center border-0 border-none bg-overlay text-foreground backdrop-blur-dialog open:grid backdrop:bg-transparent"
             aria-labelledby="result-title"
             onClose={() => setCopied(false)}
             onCancel={(event) => {
@@ -163,27 +165,49 @@ export default function ResultDialog(
                 onClose();
             }}
         >
-            <div className="card">
+            <div className="result-card w-full max-w-130 overflow-auto overscroll-contain rounded-lg border border-solid border-hairline bg-material-strong shadow-dialog glass">
                 <div ref={containerRef} id="result-map" />
-                <div className="result-body">
-                    <div className="flex items-start gap-3">
-                        <span className="result-badge" aria-hidden="true">
-                            <Check />
+                <div className="px-5 pt-4.5 pb-0.5">
+                    <div className="flex items-start gap-result">
+                        <span
+                            className="grid size-7.5 shrink-0 place-items-center rounded-full bg-good text-ink"
+                            aria-hidden="true"
+                        >
+                            <Check className="size-4.5" strokeWidth={2.6} />
                         </span>
-                        <div className="result-lines min-w-0">
-                            <h2 id="result-title">Found it</h2>
-                            <p id="result-distance">
+                        <div className="min-w-0">
+                            <h2
+                                id="result-title"
+                                className="m-0 text-title font-semibold tracking-title"
+                            >
+                                Found it
+                            </h2>
+                            <p
+                                id="result-distance"
+                                className="m-0 mt-0.5 text-small text-muted tabular-nums"
+                            >
                                 {offsetReadout(state.distance_km, state.guess, state.answer)}
                             </p>
                         </div>
                     </div>
-                    <div className="mt-4" id="flag-field" hidden={!state.flag}>
-                        <div className="field-row">
-                            <code ref={flagRef} id="flag-box">{state.flag}</code>
-                            <button
+                    <div className="mt-3.5" id="flag-field" hidden={!state.flag}>
+                        <div className="flex items-center gap-2 rounded-md border border-solid border-hairline bg-field py-2.5 pr-2 pl-3">
+                            <code
+                                ref={flagRef}
+                                id="flag-box"
+                                className="min-w-0 flex-1 select-all font-mono text-small break-all text-foreground"
+                            >
+                                {state.flag}
+                            </code>
+                            <Button
                                 type="button"
                                 id="btn-copy"
-                                className={`glyph bare${copied ? " copied" : ""}`}
+                                variant="bare"
+                                className={`size-5.5 rounded-md disabled:opacity-45 ${
+                                    copied
+                                        ? "text-good"
+                                        : "text-muted enabled:hover:text-foreground"
+                                }`}
                                 title={copied ? "Copied" : "Copy"}
                                 aria-label="Copy flag"
                                 onClick={copyFlag}
@@ -191,20 +215,21 @@ export default function ResultDialog(
                                 {copied
                                     ? <Check aria-hidden="true" />
                                     : <Copy aria-hidden="true" />}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
-                <div className="result-actions">
-                    <button
+                <div className="px-5 pt-4.5 pb-5">
+                    <Button
                         type="button"
                         id="btn-done"
                         ref={doneRef}
-                        className="primary w-full"
+                        variant="primary"
+                        className="w-full"
                         onClick={onClose}
                     >
                         Done
-                    </button>
+                    </Button>
                 </div>
             </div>
         </dialog>

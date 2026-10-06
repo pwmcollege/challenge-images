@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Hand, Minus, Mouse, Plus, Target } from "lucide-react";
+import Button from "./components/Button.tsx";
 import Loader from "./components/Loader.tsx";
 import MediaViewer from "./components/MediaViewer.tsx";
 import { createNavigation } from "./lib/navigation.ts";
@@ -207,40 +208,52 @@ export default function App() {
                 onLoading={setLoading}
             />
             <div
-                className="pano-controls flex flex-col gap-2"
+                className="pano-controls flex flex-col gap-1.75"
                 hidden={media?.kind !== "pano" || loading.error}
             >
-                <div className="pair">
-                    <button
+                <div className="flex flex-col [&>button:first-child]:rounded-b-none [&>button:first-child]:border-b-separator [&>button:last-child]:rounded-t-none [&>button:last-child]:border-t-0">
+                    <Button
                         type="button"
                         id="btn-pano-in"
-                        className="glyph"
                         title="Zoom in"
                         aria-label="Zoom in"
                         onClick={() => mediaRef.current?.zoom(-12)}
                     >
                         <Plus aria-hidden="true" />
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
                         id="btn-pano-out"
-                        className="glyph"
                         title="Zoom out"
                         aria-label="Zoom out"
                         onClick={() => mediaRef.current?.zoom(12)}
                     >
                         <Minus aria-hidden="true" />
-                    </button>
+                    </Button>
                 </div>
             </div>
-            <header id="hud" hidden>
-                <span className="chip" id="pill-threshold">
-                    <Target aria-hidden="true" />
+            <header
+                id="hud"
+                className="pointer-events-none absolute inset-x-0 top-0 z-400 flex items-center gap-2 p-3.5 [&>*]:pointer-events-auto"
+                hidden
+            >
+                <span
+                    className="inline-flex h-control items-center justify-center gap-1.75 whitespace-nowrap rounded-md border border-solid border-hairline bg-material px-3.25 font-semibold tracking-control text-foreground tabular-nums glass"
+                    id="pill-threshold"
+                >
+                    <Target className="size-4 shrink-0 stroke-2 text-muted" aria-hidden="true" />
                     <span>within - km</span>
                 </span>
             </header>
             <Loader {...loading} />
-            <div id="toast" className={toast ? "show bad" : ""} role="status" aria-live="polite">
+            <div
+                id="toast"
+                className={`pointer-events-none absolute left-1/2 top-15.5 z-400 max-w-toast -translate-x-1/2 rounded-md border border-solid border-hairline bg-material-strong px-4 py-2.5 text-bad shadow-control glass transition-opacity duration-180 ease-control ${
+                    toast ? "opacity-100" : "opacity-0"
+                }`}
+                role="status"
+                aria-live="polite"
+            >
                 {toast?.message}
             </div>
             <Suspense fallback={null}>
@@ -274,18 +287,21 @@ export default function App() {
             <div id="scrim" aria-hidden="true">
                 {Array.from({ length: 6 }, (_, index) => <div key={index} />)}
             </div>
-            <button
+            <Button
                 type="button"
                 id="btn-mode"
-                className="glyph"
+                className="absolute top-(--edge-top) right-(--edge-right) z-350"
                 title={panMode ? "Scroll pans, pinch zooms" : "Scroll zooms"}
                 aria-label="Toggle navigation mode"
                 aria-pressed={panMode}
                 onClick={() => navigation.setPanMode(!panMode)}
             >
                 {panMode ? <Hand aria-hidden="true" /> : <Mouse aria-hidden="true" />}
-            </button>
-            <footer id="credits">
+            </Button>
+            <footer
+                id="credits"
+                className="pointer-events-none absolute inset-x-0 bottom-0 z-300 flex items-center text-credit text-foreground text-shadow-credit"
+            >
                 <span id="basemap-credit">
                     {satellite
                         ? "Imagery © Esri, Maxar, Earthstar Geographics"
