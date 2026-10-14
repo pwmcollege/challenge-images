@@ -27,7 +27,11 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    concurrency:
+      group: dockerhub-pwmcollege/challenge-${{ matrix.image }}:latest
+      queue: max
     strategy:
+      fail-fast: false
       matrix:
         image:
           - capabilities
@@ -52,16 +56,20 @@ jobs:
 
       - name: Check if image should be updated
         id: check
+        shell: bash
         env:
           BEFORE_SHA: ${{ github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_IMAGE: ${{ inputs.image }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            if [ "${{ github.event.inputs.image }}" == "${{ matrix.image }}" ]; then
-              echo "update=true" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
+            if [ "$MANUAL_IMAGE" == "${{ matrix.image }}" ]; then
+              echo "update=true" >> "$GITHUB_OUTPUT"
               echo "Manually triggered build and push for ${{ matrix.image }}."
             else
-              echo "update=false" >> $GITHUB_OUTPUT
-              echo "Manual trigger selected ${{ github.event.inputs.image }}, skipping ${{ matrix.image }}."
+              echo "update=false" >> "$GITHUB_OUTPUT"
+              echo "Manual trigger selected $MANUAL_IMAGE, skipping ${{ matrix.image }}."
             fi
           else
             if [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
@@ -76,12 +84,20 @@ jobs:
               }
             fi
 
-            changed=$(git diff --name-only "$BEFORE_SHA" HEAD -- "${{ matrix.image }}" bash.bashrc) || exit 1
+            build_paths=("${{ matrix.image }}" bash.bashrc)
+            changed=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- "${build_paths[@]}") || exit 1
             if [ -n "$changed" ]; then
-              echo "update=true" >> $GITHUB_OUTPUT
-              echo "Changes detected in ${{ matrix.image }}, building and pushing."
+              git fetch --no-tags --depth=1 origin "$GITHUB_REF" || exit 1
+              outdated=$(git diff --name-only "$GITHUB_SHA" FETCH_HEAD -- "${build_paths[@]}") || exit 1
+              if [ -n "$outdated" ]; then
+                echo "update=false" >> "$GITHUB_OUTPUT"
+                echo "Newer build inputs for ${{ matrix.image }} are on the branch, skipping this outdated push."
+              else
+                echo "update=true" >> "$GITHUB_OUTPUT"
+                echo "Changes detected in ${{ matrix.image }}, building and pushing."
+              fi
             else
-              echo "update=false" >> $GITHUB_OUTPUT
+              echo "update=false" >> "$GITHUB_OUTPUT"
               echo "No changes detected in ${{ matrix.image }}, skipping."
             fi
           fi
@@ -112,7 +128,7 @@ jobs:
       - name: Copy bash.bashrc into image context
         if: steps.check.outputs.update == 'true'
         run: |
-          cp bash.bashrc ${{ matrix.image }}/
+          cp bash.bashrc "${{ matrix.image }}/"
 
       - name: Build and push Docker image
         if: steps.check.outputs.update == 'true'

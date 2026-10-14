@@ -153,6 +153,7 @@ COPY --chmod=4755 <<'EOF' /usr/local/bin/vm-stop
 start-stop-daemon \
     --stop \
     --quiet \
+    --retry TERM/10/KILL/5 \
     --pidfile /var/run/vm.pid
 EOF
 
@@ -498,17 +499,8 @@ done
 exec /usr/bin/rpm -Uvh --nodeps "${packages[@]}"
 EOF
 
-RUN passwd -d root && \
-    mkdir -p /home/hacker && \
-    vm start && \
-    until vm exec echo ok | grep -qx ok; do sleep 1; done && \
-    vm exec systemctl enable --now snapd.socket && \
-    vm exec "sh -c 'until snap wait system seed.loaded 2>/dev/null; do sleep 2; done'" && \
-    vm exec snap install snapd && \
-    vm exec snap install core && \
-    vm stop && \
-    usermod -p '*' root && \
-    rm -rf /home/hacker
+COPY --chmod=755 install-snaps.sh /tmp/install-snaps.sh
+RUN /tmp/install-snaps.sh && rm /tmp/install-snaps.sh
 
 COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
 
