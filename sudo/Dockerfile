@@ -56,7 +56,7 @@ exec "/usr/local/bin/vm-$subcommand" "$@"
 EOF
 
 COPY --chmod=4755 <<'EOF' /usr/local/bin/vm-start
-#!/usr/bin/exec-suid --real --environ=none -- /bin/sh
+#!/usr/bin/exec-suid --real -- /bin/sh
 start-stop-daemon \
     --start \
     --quiet \
@@ -149,7 +149,7 @@ RUN echo vm > /etc/hostname && \
     ln -sf /lib/systemd/system/ssh.service /etc/systemd/system/multi-user.target.wants/ssh.service
 
 COPY --chmod=4755 <<'EOF' /usr/local/bin/vm-stop
-#!/usr/bin/exec-suid --real --environ=none -- /bin/sh
+#!/usr/bin/exec-suid --real -- /bin/sh
 start-stop-daemon \
     --stop \
     --quiet \
