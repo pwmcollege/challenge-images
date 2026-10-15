@@ -499,8 +499,8 @@ done
 exec /usr/bin/rpm -Uvh --nodeps "${packages[@]}"
 EOF
 
-COPY --chmod=755 install-snaps.sh /tmp/install-snaps.sh
-RUN /tmp/install-snaps.sh && rm /tmp/install-snaps.sh
+COPY --chmod=755 install-snaps.sh /usr/local/bin/install-snaps.sh
+RUN /usr/local/bin/install-snaps.sh && rm /usr/local/bin/install-snaps.sh
 
 COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
 
