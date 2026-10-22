@@ -29,27 +29,33 @@ def serve_file(root_dir, url_path):
         raise FileNotFoundError
 
     norm = os.path.normpath(rel)
+
     if norm.startswith("..") or os.path.isabs(norm) or "/.." in norm or norm == "..":
         raise FileNotFoundError
 
     parts = [p for p in norm.split("/") if p not in ("", ".")]
+
     if not parts:
         raise FileNotFoundError
 
     root_fd = os.open(root_dir, os.O_RDONLY | os.O_DIRECTORY)
     dir_fd = root_fd
+
     try:
         for comp in parts[:-1]:
             next_fd = os.open(
                 comp, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=dir_fd
             )
+
             if dir_fd != root_fd:
                 os.close(dir_fd)
+
             dir_fd = next_fd
 
         file_fd = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW, dir_fd=dir_fd)
 
         st = os.fstat(file_fd)
+
         if not stat.S_ISREG(st.st_mode):
             os.close(file_fd)
             raise FileNotFoundError
@@ -59,6 +65,7 @@ def serve_file(root_dir, url_path):
     finally:
         if dir_fd != root_fd:
             os.close(dir_fd)
+
         os.close(root_fd)
 
 
@@ -66,7 +73,9 @@ def serve_file(root_dir, url_path):
 def host_check():
     if not ENFORCE_HOST:
         return
+
     host = (request.host or "").split(":")[0].lower()
+
     if host != CDN_HOST:
         abort(404)
 
@@ -76,6 +85,7 @@ def apply_cors(resp):
     resp.headers["Access-Control-Allow-Methods"] = "GET, HEAD, OPTIONS"
     resp.headers["Access-Control-Allow-Headers"] = "Range"
     resp.headers["Access-Control-Max-Age"] = "86400"
+
     return resp
 
 
@@ -83,12 +93,14 @@ def apply_cors(resp):
 def root():
     resp = make_response("OK\n", 200)
     resp.headers["Content-Type"] = "text/plain; charset=utf-8"
+
     return apply_cors(resp)
 
 
 @app.route("/<path:url_path>", methods=["OPTIONS"])
 def options(url_path):
     resp = make_response("", 204)
+
     return apply_cors(resp)
 
 

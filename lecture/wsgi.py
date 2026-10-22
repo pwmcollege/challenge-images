@@ -1,22 +1,28 @@
-#!/usr/bin/env /usr/local/bin/python
-
+import atexit
 import gzip
 import json
 import os
 import time
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 
 from flask import Flask, redirect, render_template, request
 
-
 app = Flask(__name__)
 
-flag = open("/flag").read().strip()
+with open("/flag") as flag_file:
+    flag = flag_file.read().strip()
 
-YOUTUBE_ID, TOTAL_TIME = open("/challenge/.config").read().strip().split()
+with open("/challenge/.config") as config_file:
+    YOUTUBE_ID, TOTAL_TIME = config_file.read().strip().split()
+
 TOTAL_TIME = int(TOTAL_TIME)
 
+timeline_resources = ExitStack()
+atexit.register(timeline_resources.close)
 
+
+@contextmanager
 def open_timeline_file():
     local_share_dir = Path("/home/hacker/.local/share/")
     local_share_dir.mkdir(parents=True, exist_ok=True)
@@ -24,20 +30,23 @@ def open_timeline_file():
     timeline_path = local_share_dir / "lectures" / f"{YOUTUBE_ID}.gz"
     timeline_path.parent.mkdir(parents=True, exist_ok=True)
     existing_data = []
+
     try:
-        for line in gzip.open(timeline_path, "rb"):
-            existing_data.append(line)
+        with gzip.open(timeline_path, "rb") as source:
+            existing_data.extend(source)
     except (FileNotFoundError, EOFError):
         pass
-    timeline_file = gzip.open(timeline_path, "wb")
-    if existing_data:
-        timeline_file.writelines(existing_data)
-        timeline_file.flush()
-    return timeline_file
+
+    with gzip.open(timeline_path, "wb") as timeline_file:
+        if existing_data:
+            timeline_file.writelines(existing_data)
+            timeline_file.flush()
+
+        yield timeline_file
 
 
 timeline = []
-timeline_file = open_timeline_file()
+timeline_file = timeline_resources.enter_context(open_timeline_file())
 
 
 @app.route("/")
@@ -57,16 +66,28 @@ def update_telemetry(youtube_id):
 
     fields = {
         "reason": str,
-        "player": ["state", "time", "muted", "volume", "rate", "loaded", "duration", "url"],
+        "player": [
+            "state",
+            "time",
+            "muted",
+            "volume",
+            "rate",
+            "loaded",
+            "duration",
+            "url",
+        ],
         "document": ["visibility", "fullscreen", "agent"],
     }
-    for field in fields:
+
+    for field, sub_fields in fields.items():
         if field not in request.json:
-            return {"error": f"Missing required data"}, 400
-        if isinstance(fields[field], list):
-            for sub_field in fields[field]:
+            return {"error": "Missing required data"}, 400
+
+        if isinstance(sub_fields, list):
+            for sub_field in sub_fields:
                 if sub_field not in request.json[field]:
-                    return {"error": f"Missing required data"}, 400
+                    return {"error": "Missing required data"}, 400
+
     event = request.json.copy()
     event["youtube_id"] = youtube_id
     event["timestamp"] = time.time()
@@ -80,6 +101,7 @@ def update_telemetry(youtube_id):
     result["coverage"] = {"valid": valid_coverage, "invalid": invalid_coverage}
 
     completed = sum(end - start for start, end in valid_coverage) > TOTAL_TIME - 5
+
     if completed:
         result["flag"] = flag
 
@@ -111,14 +133,18 @@ def resolve_timeline_coverage(timeline):
     def merge_intervals(intervals):
         if not intervals:
             return []
+
         intervals = sorted(intervals, key=lambda x: x[0])
         merged = [intervals[0]]
+
         for current_start, current_end in intervals[1:]:
             last_start, last_end = merged[-1]
+
             if current_start <= last_end:
                 merged[-1] = (last_start, max(last_end, current_end))
             else:
                 merged.append((current_start, current_end))
+
         return merged
 
     valid_coverage = merge_intervals(valid_coverage)
@@ -126,22 +152,30 @@ def resolve_timeline_coverage(timeline):
 
     def subtract_intervals(intervals, subtracting):
         result = []
-        for (int_start, int_end) in intervals:
+
+        for int_start, int_end in intervals:
             current_start = int_start
-            for (sub_start, sub_end) in subtracting:
+
+            for sub_start, sub_end in subtracting:
                 if sub_end <= current_start or sub_start >= int_end:
                     continue
+
                 if sub_start > current_start:
                     result.append((current_start, sub_start))
+
                 current_start = max(current_start, sub_end)
+
                 if current_start >= int_end:
                     break
+
             if current_start < int_end:
                 result.append((current_start, int_end))
+
         return result
 
     invalid_coverage = subtract_intervals(invalid_coverage, valid_coverage)
 
     return valid_coverage, invalid_coverage
+
 
 application = app

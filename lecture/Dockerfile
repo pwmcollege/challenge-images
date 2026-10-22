@@ -13,7 +13,7 @@ ADD static/ /opt/lecture/static/
 ADD templates/ /opt/lecture/templates/
 
 COPY <<EOF /opt/lecture/gunicorn.conf.py
-wsgi_app = 'wsgi:application'
+wsgi_app = "wsgi:application"
 bind = "0.0.0.0:80"
 loglevel = "info"
 accesslog = "/var/log/gunicorn/access.log"
