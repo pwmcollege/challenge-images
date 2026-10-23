@@ -19,7 +19,6 @@ import {
     Minus,
     Plus,
     Road,
-    RotateCcw,
     Satellite,
     X,
 } from "lucide-react";
@@ -33,6 +32,7 @@ import {
 import { type Coordinates, parseCoordinates } from "../lib/geo.ts";
 import { useDock } from "../hooks/useDock.ts";
 import Button from "./Button.tsx";
+import ResetButton from "./ResetButton.tsx";
 import type { ChallengeState } from "../types.ts";
 import type { Navigation } from "../lib/navigation.ts";
 
@@ -83,6 +83,8 @@ export default function MapDock({
     const satelliteRef = useRef<((visible: boolean) => void) | null>(null);
     const pressRef = useRef<{ x: number; y: number } | null>(null);
     const editedRef = useRef(false);
+    const preserveCamera = useRef(false);
+    const preferenceResizeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const latest = useRef({ busy, state, onGuessChange, onReady, notify });
     const [mapReady, setMapReady] = useState(false);
     const [selection, setSelection] = useState<Coordinates | null>(null);
@@ -183,6 +185,17 @@ export default function MapDock({
         map.easeTo({ center: at, duration });
     }, []);
 
+    const preserveCameraDuringResize = useCallback(() => {
+        preserveCamera.current = true;
+        if (preferenceResizeTimer.current !== null) {
+            clearTimeout(preferenceResizeTimer.current);
+        }
+        preferenceResizeTimer.current = setTimeout(() => {
+            preserveCamera.current = false;
+            preferenceResizeTimer.current = null;
+        }, 140);
+    }, []);
+
     useImperativeHandle(ref, () => ({ clear, frame }), [clear, frame]);
 
     const dock = useDock({
@@ -209,7 +222,7 @@ export default function MapDock({
         let observer: ResizeObserver | null = null;
         let destroyGestures: (() => void) | null = null;
         let framePending: ReturnType<typeof setTimeout> | undefined;
-        createBasemap(container, { signal: abort.signal }).then((next) => {
+        createBasemap(container, { signal: abort.signal, trackResize: false }).then((next) => {
             map = next;
             if (abort.signal.aborted) {
                 map.remove();
@@ -220,11 +233,19 @@ export default function MapDock({
             destroyGestures = installMapGestures(map, container, navigation);
             map.on("click", (event) => setGuess(event.lngLat.wrap()));
             observer = new ResizeObserver(() => {
+                const preserve = preserveCamera.current;
+                if (preserve) {
+                    preserveCameraDuringResize();
+                }
                 next.stop();
-                next.resize();
+                next.resize(undefined, !preserve);
                 next.redraw();
                 clearTimeout(framePending);
-                framePending = setTimeout(() => frame(320), 140);
+                framePending = setTimeout(() => {
+                    if (!preserve && !preserveCamera.current) {
+                        frame(320);
+                    }
+                }, 140);
             });
             observer.observe(mapElement);
             map.resize();
@@ -241,6 +262,11 @@ export default function MapDock({
             observer?.disconnect();
             destroyGestures?.();
             clearTimeout(framePending);
+            if (preferenceResizeTimer.current !== null) {
+                clearTimeout(preferenceResizeTimer.current);
+                preferenceResizeTimer.current = null;
+            }
+            preserveCamera.current = false;
             markerRef.current?.remove();
             markerRef.current = null;
             map?.remove();
@@ -248,7 +274,7 @@ export default function MapDock({
             satelliteRef.current = null;
             latest.current.onReady?.(false);
         };
-    }, [navigation, setGuess, frame]);
+    }, [navigation, setGuess, frame, preserveCameraDuringResize]);
 
     useEffect(() => {
         satelliteRef.current?.(satellite);
@@ -307,11 +333,22 @@ export default function MapDock({
         return true;
     }
 
-    async function reset() {
-        if (!busy && ready && await onReset()) {
+    async function reset(defaults: boolean) {
+        if (busy || !ready) {
+            return false;
+        }
+        if (defaults) {
+            preserveCameraDuringResize();
+            dock.resetPreferences();
+            navigation.reset();
+            return true;
+        }
+        if (await onReset()) {
             clear();
             mapRef.current?.easeTo({ center: [0, 20], zoom: 1, duration: 400 });
+            return true;
         }
+        return false;
     }
 
     return (
@@ -418,28 +455,23 @@ export default function MapDock({
                             type="button"
                             id="btn-coord"
                             className="aria-pressed:text-accent"
-                            disabled={busy || !ready || solved}
+                            disabled={!ready || solved}
+                            aria-disabled={busy || undefined}
                             aria-pressed={coordinateOpen}
                             aria-controls="coord-entry"
                             title="Enter coordinates"
                             aria-label="Enter coordinates"
                             onClick={() => {
+                                if (busy) {
+                                    return;
+                                }
                                 setInvalid(false);
                                 setCoordinateOpen((open) => !open);
                             }}
                         >
                             <LocateFixed aria-hidden="true" />
                         </Button>
-                        <Button
-                            type="button"
-                            id="btn-reset"
-                            disabled={busy || !ready}
-                            title="Clear pin and recentre"
-                            aria-label="Clear pin and recentre"
-                            onClick={reset}
-                        >
-                            <RotateCcw aria-hidden="true" />
-                        </Button>
+                        <ResetButton disabled={!ready} busy={busy} onReset={reset} />
                     </div>
                     <div
                         className={`absolute inset-x-2 bottom-2 z-12 flex h-control items-center gap-1.5 rounded-md border border-solid bg-material pr-1.5 pl-3 shadow-control glass ${

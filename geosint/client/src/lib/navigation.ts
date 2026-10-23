@@ -13,6 +13,7 @@ export interface GestureAdapter {
 export interface Navigation {
     panMode(): boolean;
     setPanMode(pan: boolean): void;
+    reset(): void;
     onModeChange(listener: (pan: boolean) => void): () => void;
     gestureControls(node: HTMLElement, adapter: GestureAdapter): () => void;
 }
@@ -37,6 +38,16 @@ export function createNavigation(): Navigation {
         listeners.forEach((listener) => listener(pan));
         try {
             localStorage.setItem("pano-nav", mode);
+        } catch {
+            return;
+        }
+    }
+
+    function reset() {
+        mode = "pan";
+        listeners.forEach((listener) => listener(true));
+        try {
+            localStorage.removeItem("pano-nav");
         } catch {
             return;
         }
@@ -156,5 +167,5 @@ export function createNavigation(): Navigation {
         };
     }
 
-    return { panMode, setPanMode, onModeChange, gestureControls };
+    return { panMode, setPanMode, reset, onModeChange, gestureControls };
 }

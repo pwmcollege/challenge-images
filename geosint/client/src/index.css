@@ -282,6 +282,87 @@
     max-height: calc(100% - 16px);
 }
 
+#btn-reset .reset-hold-ring {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: var(--spacing-control);
+    height: var(--spacing-control);
+    transform: translate(-50%, -50%);
+    color: var(--color-bad);
+    pointer-events: none;
+}
+
+.reset-hold-progress {
+    stroke-linecap: round;
+}
+
+.reset-icon {
+    display: inline-flex;
+    pointer-events: none;
+}
+
+.reset-icon-pending {
+    animation-name: reset-spin;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+#btn-reset[data-feedback="preferences-pending"] .reset-icon,
+.reset-trash {
+    color: var(--color-bad);
+}
+
+.reset-check {
+    color: var(--color-good);
+}
+
+.reset-check path {
+    stroke-dasharray: 24;
+    stroke-dashoffset: 24;
+    animation: reset-check-draw 240ms ease-out forwards;
+}
+
+.reset-trash {
+    animation: reset-feedback-pop 180ms ease-out both;
+}
+
+@keyframes reset-spin {
+    to {
+        transform: rotate(-360deg);
+    }
+}
+
+@keyframes reset-check-draw {
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+@keyframes reset-feedback-pop {
+    from {
+        opacity: 0;
+        transform: scale(0.65);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .reset-icon-pending,
+    .reset-check path,
+    .reset-trash {
+        animation: none;
+    }
+
+    .reset-check path {
+        stroke-dashoffset: 0;
+    }
+}
+
 .maplibregl-ctrl-bottom-left,
 .maplibregl-ctrl-bottom-right,
 .maplibregl-ctrl-top-left,

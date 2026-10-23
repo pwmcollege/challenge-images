@@ -247,6 +247,13 @@ export function useDock(
         startResize,
         nudgeSize,
         resetSize,
+        resetPreferences() {
+            if (!ready) {
+                return;
+            }
+            resetSize();
+            setZoomed(false);
+        },
         toggleZoom: () => ready && setZoomed((value) => !value),
         hide: () => show(false),
         show: () => show(true),

@@ -61,7 +61,7 @@ function whenLoaded(map: MapLibreMap, ms: number, signal?: AbortSignal) {
 
 export async function createBasemap(
     container: HTMLElement,
-    { signal }: { signal?: AbortSignal } = {},
+    { signal, trackResize = true }: { signal?: AbortSignal; trackResize?: boolean } = {},
 ) {
     let failure: unknown = null;
 
@@ -83,6 +83,7 @@ export async function createBasemap(
                 maxZoom: 18,
                 attributionControl: false,
                 dragRotate: false,
+                trackResize,
             });
             map.touchZoomRotate.disableRotation();
             await whenLoaded(map, 10000, signal);
@@ -123,6 +124,7 @@ export async function createBasemap(
         maxZoom: 18,
         attributionControl: false,
         dragRotate: false,
+        trackResize,
     });
     map.touchZoomRotate.disableRotation();
     try {
