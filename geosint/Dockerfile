@@ -1,12 +1,12 @@
-FROM denoland/deno:latest AS build
+FROM node:latest AS build
 
 WORKDIR /app/client
 
-COPY client/package.json client/deno.json client/deno.lock ./
-RUN --mount=type=cache,target=/deno-dir deno install --frozen
+COPY client/package.json client/package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 COPY client/ ./
-RUN --mount=type=cache,target=/deno-dir deno task build
+RUN npm run build
 
 FROM ubuntu:26.04 AS runtime
 

@@ -5,34 +5,35 @@
     "dependencies": {
         "@use-gesture/vanilla": "10.3.1",
         "leaflet": "1.9.4",
-        "lucide-react": "1.52.0",
-        "maplibre-gl": "6.12.0",
+        "lucide-react": "1.61.0",
+        "maplibre-gl": "6.15.0",
         "pannellum": "2.5.7",
-        "react": "19.3.0",
-        "react-dom": "19.3.0"
+        "react": "19.3.1",
+        "react-dom": "19.3.1"
     },
     "devDependencies": {
-        "@babel/core": "8.0.6",
+        "@babel/core": "8.0.7",
         "@rolldown/plugin-babel": "0.2.4",
-        "@shadcn/lint": "0.2.0",
+        "@shadcn/lint": "0.2.3",
         "@tailwindcss/vite": "4.3.3",
         "@types/geojson": "7946.0.16",
         "@types/leaflet": "1.9.22",
-        "@types/node": "26.6.4",
+        "@types/node": "26.6.5",
         "@types/pannellum": "2.5.2",
         "@types/react": "19.3.0",
         "@types/react-dom": "19.3.0",
         "@vitejs/plugin-react": "6.1.2",
         "babel-plugin-react-compiler": "1.0.0",
-        "oxlint": "1.87.0",
+        "oxlint": "1.89.0",
         "tailwindcss": "4.3.3",
         "typescript": "7.0.2",
-        "vite": "8.3.2"
+        "vite": "8.3.5"
     },
     "scripts": {
         "dev": "vite",
         "build": "tsc -b && vite build",
-        "lint": "oxlint --deny-warnings",
+        "check": "npm run lint && npm run typecheck",
+        "lint": "oxlint --deny-warnings src vite.config.ts",
         "preview": "vite preview",
         "typecheck": "tsc -b"
     }
