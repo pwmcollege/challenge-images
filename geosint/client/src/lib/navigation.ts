@@ -30,12 +30,14 @@ export function createNavigation(): Navigation {
                 mode = "pan";
             }
         }
+
         return mode === "pan";
     }
 
     function setPanMode(pan: boolean) {
         mode = pan ? "pan" : "zoom";
         listeners.forEach((listener) => listener(pan));
+
         try {
             localStorage.setItem("pano-nav", mode);
         } catch {
@@ -46,6 +48,7 @@ export function createNavigation(): Navigation {
     function reset() {
         mode = "pan";
         listeners.forEach((listener) => listener(true));
+
         try {
             localStorage.removeItem("pano-nav");
         } catch {
@@ -56,6 +59,7 @@ export function createNavigation(): Navigation {
     function onModeChange(listener: (pan: boolean) => void) {
         listeners.add(listener);
         listener(panMode());
+
         return () => {
             listeners.delete(listener);
         };
@@ -72,6 +76,7 @@ export function createNavigation(): Navigation {
             if (frame !== null) {
                 cancelAnimationFrame(frame);
             }
+
             frame = null;
             velocityX = 0;
             velocityY = 0;
@@ -80,10 +85,13 @@ export function createNavigation(): Navigation {
         function glide() {
             velocityX *= 0.9;
             velocityY *= 0.9;
+
             if (Math.abs(velocityX) < 0.02 && Math.abs(velocityY) < 0.02) {
                 stop();
+
                 return;
             }
+
             adapter.pan(velocityX, velocityY, Math.hypot(velocityX, velocityY));
             frame = requestAnimationFrame(glide);
         }
@@ -94,17 +102,22 @@ export function createNavigation(): Navigation {
                 if (!panMode() || !state.event || state.event.ctrlKey) {
                     return;
                 }
+
                 state.event.preventDefault();
+
                 if (state.last) {
                     if (adapter.glide && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
                         velocityX = -state.velocity[0] * state.direction[0] * 6;
                         velocityY = -state.velocity[1] * state.direction[1] * 6;
+
                         if (frame === null) {
                             frame = requestAnimationFrame(glide);
                         }
                     }
+
                     return;
                 }
+
                 stop();
                 adapter.pan(
                     -state.delta[0],
@@ -126,27 +139,36 @@ export function createNavigation(): Navigation {
                 ) {
                     return;
                 }
+
                 state.event.preventDefault();
+
                 if (state.event.type !== "wheel") {
                     adapter.input?.();
                 }
+
                 if (state.first) {
                     stop();
                     cancelingPinch = false;
                 }
+
                 if (state.last) {
                     cancelingPinch = false;
                 }
+
                 if (cancelingPinch) {
                     return;
                 }
+
                 const scale = state.offset[0];
+
                 if (!Number.isFinite(scale) || scale <= 0) {
                     // Wheel rubberbanding can cross zero; cancellation snaps back to bounds.
                     cancelingPinch = true;
                     state.cancel();
+
                     return;
                 }
+
                 adapter.zoom(scale, state.origin);
             },
             {

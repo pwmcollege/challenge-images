@@ -37,9 +37,11 @@ export default function MediaViewer(
         if (!media || !container.current) {
             return;
         }
+
         const view = createMedia(container.current, navigation, loading, failed);
         controller.current = view;
         view.mount(media);
+
         return () => {
             controller.current = null;
             view.destroy();

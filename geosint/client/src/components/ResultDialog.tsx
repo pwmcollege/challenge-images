@@ -35,13 +35,16 @@ export default function ResultDialog(
 
     useLayoutEffect(() => {
         const dialog = dialogRef.current;
+
         if (!dialog) {
             return;
         }
+
         if (open) {
             if (!dialog.open) {
                 dialog.showModal();
             }
+
             doneRef.current?.focus();
         } else {
             dialog.close();
@@ -50,17 +53,21 @@ export default function ResultDialog(
 
     useEffect(() => {
         const container = containerRef.current;
+
         if (!container) {
             return;
         }
+
         let disposed = false;
         let current: MapLibreMap | null = null;
         const controller = new AbortController();
         createBasemap(container, { signal: controller.signal }).then((next) => {
             if (disposed) {
                 next.remove();
+
                 return;
             }
+
             current = next;
             activeMap.current = next;
             satelliteRef.current = installSatelliteLayer(next);
@@ -71,6 +78,7 @@ export default function ResultDialog(
                 notify("Result map unavailable.");
             }
         });
+
         return () => {
             disposed = true;
             controller.abort();
@@ -87,9 +95,11 @@ export default function ResultDialog(
 
     useEffect(() => {
         const container = containerRef.current;
+
         if (!map || !open || !container) {
             return;
         }
+
         const { guess, answer } = state;
         const line = lineBetween(guess, answer);
         const points = line.features[0].geometry.coordinates;
@@ -114,9 +124,11 @@ export default function ResultDialog(
         );
         const observer = new ResizeObserver(() => map.resize());
         observer.observe(container);
+
         return () => {
             observer.disconnect();
             markers.forEach((marker) => marker.remove());
+
             if (activeMap.current === map) {
                 map.getSource<GeoJSONSource>("reveal")?.setData({
                     type: "FeatureCollection",
@@ -132,24 +144,31 @@ export default function ResultDialog(
         } catch {
             const flag = flagRef.current;
             const selection = window.getSelection();
+
             if (!flag || !selection) {
                 notify("Select the flag and copy it manually.");
+
                 return;
             }
+
             const range = document.createRange();
             range.selectNodeContents(flag);
             selection.removeAllRanges();
             selection.addRange(range);
+
             try {
                 if (!document.execCommand("copy")) {
                     notify("Select the flag and copy it manually.");
+
                     return;
                 }
             } catch {
                 notify("Select the flag and copy it manually.");
+
                 return;
             }
         }
+
         setCopied(true);
     }
 

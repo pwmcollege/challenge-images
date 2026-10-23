@@ -51,15 +51,6 @@ def load_config():
     return config
 
 
-def load_flag():
-    flag = Path("/flag").read_text().strip()
-
-    if not flag:
-        raise ValueError("Flag is empty.")
-
-    return flag
-
-
 app = Flask(__name__, static_folder="../client/dist/static", static_url_path="/static")
 app.config["MAX_CONTENT_LENGTH"] = 4096
 
@@ -68,7 +59,9 @@ game = {"result": None, "last_guess": 0.0}
 
 CONFIG = load_config()
 MEDIA = Media(Path("/challenge/media"), CONFIG.get("kind"))
-FLAG = load_flag()
+
+with Path("/flag").open() as flag_file:
+    FLAG = flag_file.read().strip()
 
 
 def public_state():

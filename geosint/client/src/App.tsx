@@ -24,6 +24,7 @@ async function api<T>(path: string, options: RequestInit = {}): Promise<ApiRespo
         signal: options.signal ? AbortSignal.any([options.signal, timeout]) : timeout,
     });
     const body: unknown = await response.json();
+
     return response.ok
         ? { ok: true, status: response.status, body: body as T }
         : { ok: false, status: response.status, body: body as ApiError };
@@ -51,10 +52,12 @@ export default function App() {
     const guess = useRef<Coordinates | null>(null);
     const pending = useRef(false);
     const notify = useCallback((message: string) => setToast({ message }), []);
+
     const acceptState = useCallback((next: ChallengeState) => {
         setState(next);
         setMedia((current) => current || next.media);
     }, []);
+
     const selectGuess = useCallback((next: Coordinates | null) => {
         guess.current = next;
         setGuessStatus("idle");
@@ -66,16 +69,20 @@ export default function App() {
         if (!toast) {
             return;
         }
+
         const timer = setTimeout(() => setToast(null), 3400);
+
         return () => clearTimeout(timer);
     }, [toast]);
 
     useEffect(() => {
         const controller = new AbortController();
+
         api<ChallengeState>("api/state", { signal: controller.signal }).then(({ ok, body }) => {
             if (!ok) {
                 throw new Error(body.error || "Could not load challenge");
             }
+
             acceptState(body);
         }).catch(() => {
             if (!controller.signal.aborted) {
@@ -89,6 +96,7 @@ export default function App() {
                 });
             }
         });
+
         return () => controller.abort();
     }, [acceptState, notify]);
 
@@ -100,20 +108,26 @@ export default function App() {
     const submitGuess = useCallback(async () => {
         if (state?.solved) {
             setResultView("open");
+
             return;
         }
+
         if (!state || pending.current || !guess.current) {
             return;
         }
+
         pending.current = true;
         setBusy(true);
+
         const options = {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(guess.current),
         };
+
         try {
             let response = await api<GuessResponse>("api/guess", options);
+
             if (!response.ok && response.status === 429) {
                 const wait = Math.min(
                     1000,
@@ -122,20 +136,27 @@ export default function App() {
                 await new Promise<void>((resolve) => setTimeout(resolve, wait));
                 response = await api<GuessResponse>("api/guess", options);
             }
+
             if (!response.ok && response.status === 409) {
                 const current = await api<ChallengeState>("api/state");
+
                 if (current.ok) {
                     acceptState(current.body);
                 } else {
                     notify("Could not reach the server. Try again.");
                 }
+
                 return;
             }
+
             if (!response.ok) {
                 notify(response.body.error || "Guess rejected. Try again.");
+
                 return;
             }
+
             acceptState(response.body.state);
+
             if (response.body.outcome === "wrong") {
                 // mapRef.current?.clear();
                 setGuessStatus("wrong");
@@ -158,19 +179,25 @@ export default function App() {
         if (!state || pending.current) {
             return false;
         }
+
         pending.current = true;
         setBusy(true);
+
         try {
             const { ok, body } = await api<ChallengeState>("api/reset", { method: "POST" });
+
             if (!ok) {
                 throw new Error("Could not reset");
             }
+
             acceptState(body);
             setResultView("idle");
             setGuessStatus("idle");
+
             return true;
         } catch {
             notify("Could not reset. Try again.");
+
             return false;
         } finally {
             pending.current = false;
@@ -189,13 +216,16 @@ export default function App() {
             ) {
                 return;
             }
+
             if (resultView === "open") {
                 closeResult();
             } else if (!busy && !state?.solved) {
                 submitGuess();
             }
         }
+
         document.addEventListener("keydown", keyDown);
+
         return () => document.removeEventListener("keydown", keyDown);
     }, [busy, closeResult, resultView, state?.solved, submitGuess]);
 

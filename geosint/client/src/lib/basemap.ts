@@ -29,6 +29,7 @@ async function styleJson(signal: AbortSignal): Promise<StyleSpecification> {
     if (!response.ok) {
         throw new Error("Basemap style returned " + response.status);
     }
+
     return response.json();
 }
 
@@ -39,20 +40,24 @@ function whenLoaded(map: MapLibreMap, ms: number, signal?: AbortSignal) {
             map.off("load", loaded);
             signal?.removeEventListener("abort", aborted);
         }
+
         function loaded() {
             cleanup();
             resolve();
         }
+
         function aborted() {
             cleanup();
             reject(signal?.reason);
         }
+
         const timer = setTimeout(() => {
             cleanup();
             reject(new Error("Basemap timed out"));
         }, ms);
         map.once("load", loaded);
         signal?.addEventListener("abort", aborted, { once: true });
+
         if (signal?.aborted) {
             aborted();
         }
@@ -87,6 +92,7 @@ export async function createBasemap(
             });
             map.touchZoomRotate.disableRotation();
             await whenLoaded(map, 10000, signal);
+
             return map;
         } catch (error) {
             failure = error;
@@ -94,7 +100,9 @@ export async function createBasemap(
             if (map) {
                 map.remove();
             }
+
             signal?.throwIfAborted();
+
             if (attempt < 2) {
                 await new Promise((resolve) => {
                     setTimeout(resolve, 500 * attempt);
@@ -102,6 +110,7 @@ export async function createBasemap(
             }
         }
     }
+
     signal?.throwIfAborted();
     console.warn("Basemap unavailable", failure);
     container.classList.add("map-unavailable");
@@ -127,12 +136,15 @@ export async function createBasemap(
         trackResize,
     });
     map.touchZoomRotate.disableRotation();
+
     try {
         await whenLoaded(map, 5000, signal);
     } catch (error) {
         map.remove();
+
         throw error;
     }
+
     return map;
 }
 
@@ -148,12 +160,15 @@ function satelliteStyle(layer: LayerSpecification): SatelliteRule[] | null {
     if (layer.type === "symbol" || layer.type === "background") {
         return null;
     }
+
     if (/^(landcover|landuse|park_|water|building)/.test(id) || id === "boundary_county") {
         return [["visibility", "none"]];
     }
+
     if (id === "boundary_country_outline") {
         return [["line-opacity", 0.7]];
     }
+
     if (id === "boundary_state") {
         return [
             ["line-color", "rgba(255, 255, 255, 0.75)"],
@@ -161,15 +176,18 @@ function satelliteStyle(layer: LayerSpecification): SatelliteRule[] | null {
             ["line-width", ["interpolate", ["linear"], ["zoom"], 4, 0.9, 7, 1.6, 9, 2]],
         ];
     }
+
     if (/^boundary_/.test(id)) {
         return [
             ["line-color", "rgba(255, 255, 255, 0.75)"],
             ["line-dasharray", [1, 0]],
         ];
     }
+
     if (layer.type !== "line") {
         return null;
     }
+
     if (layer.paint && layer.paint["line-dasharray"]) {
         return [["visibility", "none"]];
     }
@@ -202,6 +220,7 @@ function satelliteStyle(layer: LayerSpecification): SatelliteRule[] | null {
             ],
         ];
     }
+
     return [
         ["line-color", "rgba(198, 198, 196, 0.82)"],
         ["line-opacity", ["interpolate", ["linear"], ["zoom"], 9.5, 0, 11, 1, 16, 1, 17, 0]],
@@ -235,6 +254,7 @@ export function installSatelliteLayer(map: MapLibreMap) {
         if (!rules) {
             return;
         }
+
         rules.forEach(([prop, on]) => {
             if (prop === "visibility") {
                 satellitePlan.push({
@@ -288,19 +308,23 @@ export function installSatelliteLayer(map: MapLibreMap) {
         clearTimeout(state.timer);
         state.abort?.abort();
     });
+
     return showSatellite;
 
     function showSatellite(on: boolean) {
         state.enabled = on;
+
         if (on) {
             queueSatelliteLimit();
         } else {
             state.revision++;
             clearTimeout(state.timer);
+
             if (state.abort) {
                 state.abort.abort();
                 state.abort = null;
             }
+
             map.setMaxZoom(state.defaultMaxZoom);
         }
 
@@ -310,6 +334,7 @@ export function installSatelliteLayer(map: MapLibreMap) {
             if (!map.getLayer(item.id)) {
                 return;
             }
+
             if (item.prop === "visibility") {
                 map.setLayoutProperty(item.id, "visibility", on ? item.on : item.off);
             } else {
@@ -343,21 +368,27 @@ export function installSatelliteLayer(map: MapLibreMap) {
 
         if (satelliteAvailability.size >= 512) {
             const oldest = satelliteAvailability.keys().next().value;
+
             if (oldest !== undefined) {
                 satelliteAvailability.delete(oldest);
             }
         }
+
         const cached = satelliteAvailability.get(key);
+
         if (cached !== undefined) {
             return cached;
         }
 
         const url = satelliteService + "/tilemap/" + key + "/1/1?f=json";
         const response = await fetch(url, { signal });
+
         if (response.status === 422) {
             satelliteAvailability.set(key, false);
+
             return false;
         }
+
         if (!response.ok) {
             throw new Error("Satellite coverage returned " + response.status);
         }
@@ -365,6 +396,7 @@ export function installSatelliteLayer(map: MapLibreMap) {
         const result: { valid?: boolean; data?: number[] } = await response.json();
         const available = result.valid !== false && result.data?.[0] === 1;
         satelliteAvailability.set(key, available);
+
         return available;
     }
 
@@ -380,6 +412,7 @@ export function installSatelliteLayer(map: MapLibreMap) {
         if (state.abort) {
             state.abort.abort();
         }
+
         state.abort = abort;
         const timer = setTimeout(() => {
             abort.abort();
@@ -400,9 +433,11 @@ export function installSatelliteLayer(map: MapLibreMap) {
             if (!abort.signal.aborted) {
                 console.warn("Could not check satellite coverage", error);
             }
+
             return;
         } finally {
             clearTimeout(timer);
+
             if (state.abort === abort) {
                 state.abort = null;
             }
@@ -411,9 +446,11 @@ export function installSatelliteLayer(map: MapLibreMap) {
         if (!state.enabled || state.revision !== revision) {
             return;
         }
+
         const limit = Math.min(state.defaultMaxZoom, maxZoom);
 
         map.setMaxZoom(limit);
+
         if (map.getZoom() > limit) {
             map.jumpTo({ zoom: limit });
         }
@@ -427,10 +464,12 @@ export function installSatelliteLayer(map: MapLibreMap) {
         const revision = ++state.revision;
 
         clearTimeout(state.timer);
+
         if (state.abort) {
             state.abort.abort();
             state.abort = null;
         }
+
         state.timer = setTimeout(() => {
             state.timer = undefined;
             updateSatelliteLimit(revision);
@@ -444,6 +483,7 @@ function svgNode(name: string, attributes: Record<string, string>) {
     Object.entries(attributes).forEach(([key, value]) => {
         node.setAttribute(key, value);
     });
+
     return node;
 }
 
@@ -488,6 +528,7 @@ export function createPin(light: string, dark: string, className: string) {
     );
     wrapper.className = className;
     wrapper.append(root);
+
     return wrapper;
 }
 
@@ -534,6 +575,7 @@ export function installMapGestures(
             });
         },
     });
+
     return () => {
         unsubscribe();
         destroy();
@@ -554,6 +596,7 @@ export function pinAt(
         .setLngLat([at.lon, at.lat])
         .addTo(map);
     marker.getElement().title = title;
+
     return marker;
 }
 

@@ -43,9 +43,11 @@ export default function ResetButton({ disabled, busy, onReset }: ResetButtonProp
         animation.current = null;
         iconAnimation.current?.cancel();
         iconAnimation.current = null;
+
         if (icon.current) {
             icon.current.style.color = "";
         }
+
         if (ring.current) {
             ring.current.style.display = "none";
         }
@@ -53,6 +55,7 @@ export default function ResetButton({ disabled, busy, onReset }: ResetButtonProp
 
     const showProgress = useCallback(() => {
         hideProgress();
+
         if (ring.current && progress.current) {
             ring.current.style.display = "block";
             animation.current = progress.current.animate(
@@ -60,8 +63,10 @@ export default function ResetButton({ disabled, busy, onReset }: ResetButtonProp
                 { duration: RESET_HOLD_MS, easing: "linear", fill: "forwards" },
             );
         }
+
         if (icon.current) {
             icon.current.style.color = "var(--color-bad)";
+
             if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
                 iconAnimation.current = icon.current.animate(
                     [{ transform: "rotate(0deg)" }, { transform: "rotate(-360deg)" }],
@@ -69,14 +74,17 @@ export default function ResetButton({ disabled, busy, onReset }: ResetButtonProp
                 );
             }
         }
+
         return animation.current;
     }, [hideProgress]);
 
     const rewindProgress = useCallback(async () => {
         const path = progress.current;
+
         if (!animation.current || !path) {
             return;
         }
+
         const offset = Math.min(100, Math.max(0, parseFloat(getComputedStyle(path).strokeDashoffset)));
         const fraction = 1 - offset / 100;
         const duration = Math.max(80, Math.round(fraction * 300));
@@ -87,12 +95,14 @@ export default function ResetButton({ disabled, busy, onReset }: ResetButtonProp
             { duration, easing: "ease-out", fill: "forwards" },
         );
         animation.current = returning;
+
         if (icon.current && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
             iconAnimation.current = icon.current.animate(
                 [{ transform: `rotate(${-360 * fraction}deg)` }, { transform: "rotate(0deg)" }],
                 { duration, easing: "ease-out", fill: "forwards" },
             );
         }
+
         try {
             await returning.finished;
         } catch (error) {
@@ -111,18 +121,23 @@ export default function ResetButton({ disabled, busy, onReset }: ResetButtonProp
             clearTimeout(timer.current);
             timer.current = null;
         }
+
         press.current = null;
     }, []);
 
     const releasePress = useCallback(() => {
         const from = press.current;
+
         if (!from) {
             return;
         }
+
         clearPress();
+
         if (!pending.current) {
             const tap = !from.requiresShift && from.armed &&
                 performance.now() - from.startedAt <= TAP_MAX_MS;
+
             if (tap) {
                 animation.current?.pause();
                 iconAnimation.current?.pause();
@@ -137,8 +152,10 @@ export default function ResetButton({ disabled, busy, onReset }: ResetButtonProp
         if (!press.current) {
             return;
         }
+
         consumed.current = true;
         clearPress();
+
         if (!pending.current) {
             rewindProgress();
         }
@@ -146,15 +163,19 @@ export default function ResetButton({ disabled, busy, onReset }: ResetButtonProp
 
     const releaseShift = useCallback(() => {
         const from = press.current;
+
         if (!from?.requiresShift || !from.armed) {
             return;
         }
+
         from.armed = false;
         consumed.current = true;
+
         if (timer.current !== null) {
             clearTimeout(timer.current);
             timer.current = null;
         }
+
         rewindProgress();
     }, [rewindProgress]);
 
@@ -162,28 +183,38 @@ export default function ResetButton({ disabled, busy, onReset }: ResetButtonProp
         if (latest.current.disabled || pending.current) {
             return;
         }
+
         if (feedbackTimer.current !== null) {
             clearTimeout(feedbackTimer.current);
         }
+
         pending.current = true;
         setFeedback(defaults ? "preferences-pending" : "map-rewinding");
+
         try {
             if (!defaults) {
                 await rewindProgress();
             }
+
             if (!mounted.current) {
                 return;
             }
+
             if (latest.current.disabled) {
                 setFeedback("idle");
+
                 return;
             }
+
             setFeedback(defaults ? "preferences-pending" : "map-pending");
             const success = await latest.current.onReset(defaults);
+
             if (!mounted.current) {
                 return;
             }
+
             setFeedback(success ? (defaults ? "preferences-done" : "map-done") : "idle");
+
             if (success) {
                 feedbackTimer.current = setTimeout(() => {
                     feedbackTimer.current = null;
@@ -194,6 +225,7 @@ export default function ResetButton({ disabled, busy, onReset }: ResetButtonProp
             if (!(error instanceof DOMException && error.name === "AbortError")) {
                 console.error(error);
             }
+
             if (mounted.current) {
                 setFeedback("idle");
             }
@@ -204,6 +236,7 @@ export default function ResetButton({ disabled, busy, onReset }: ResetButtonProp
 
     useLayoutEffect(() => {
         latest.current = { disabled: blocked, onReset };
+
         if (blocked) {
             cancelGesture();
         }
@@ -211,19 +244,23 @@ export default function ResetButton({ disabled, busy, onReset }: ResetButtonProp
 
     useEffect(() => {
         mounted.current = true;
+
         function keyUp(event: globalThis.KeyboardEvent) {
             if (event.key === "Shift") {
                 releaseShift();
             }
         }
+
         window.addEventListener("blur", cancelGesture);
         window.addEventListener("keyup", keyUp);
+
         return () => {
             mounted.current = false;
             window.removeEventListener("blur", cancelGesture);
             window.removeEventListener("keyup", keyUp);
             clearPress();
             hideProgress();
+
             if (feedbackTimer.current !== null) {
                 clearTimeout(feedbackTimer.current);
             }
@@ -245,18 +282,24 @@ export default function ResetButton({ disabled, busy, onReset }: ResetButtonProp
             onContextMenu={(event) => event.preventDefault()}
             onPointerDown={(event) => {
                 cancelGesture();
+
                 if (blocked || pending.current || !event.isPrimary || event.button !== 0) {
                     return;
                 }
+
                 consumed.current = false;
+
                 if (feedbackTimer.current !== null) {
                     clearTimeout(feedbackTimer.current);
                 }
+
                 setFeedback("idle");
                 const requiresShift = event.pointerType !== "touch";
+
                 if (requiresShift && !event.shiftKey) {
                     return;
                 }
+
                 press.current = {
                     id: event.pointerId,
                     x: event.clientX,
@@ -269,10 +312,13 @@ export default function ResetButton({ disabled, busy, onReset }: ResetButtonProp
                 showProgress();
                 timer.current = setTimeout(() => {
                     timer.current = null;
+
                     if (!press.current?.armed) {
                         return;
                     }
+
                     hideProgress();
+
                     if (!latest.current.disabled) {
                         consumed.current = true;
                         clearPress();
@@ -282,9 +328,11 @@ export default function ResetButton({ disabled, busy, onReset }: ResetButtonProp
             }}
             onPointerMove={(event) => {
                 const from = press.current;
+
                 if (from?.requiresShift && !event.shiftKey) {
                     releaseShift();
                 }
+
                 if (
                     from?.id === event.pointerId &&
                     Math.hypot(event.clientX - from.x, event.clientY - from.y) > 10
@@ -308,8 +356,10 @@ export default function ResetButton({ disabled, busy, onReset }: ResetButtonProp
                 if (event.shiftKey || consumed.current) {
                     consumed.current = false;
                     event.preventDefault();
+
                     return;
                 }
+
                 reset(false);
             }}
         >

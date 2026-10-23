@@ -125,7 +125,9 @@ export default function MapDock({
         ) {
             return;
         }
+
         const wrapped = LngLat.convert(latlng).wrap();
+
         if (markerRef.current) {
             markerRef.current.setLngLat(wrapped);
         } else {
@@ -154,14 +156,17 @@ export default function MapDock({
                             event.clientY - pressRef.current.y,
                         ) > 4;
                 pressRef.current = null;
+
                 if (!latest.current.busy && !moved && !latest.current.state?.solved) {
                     clear();
                 }
             });
         }
+
         const next = { lat: wrapped.lat, lon: wrapped.lng };
         setSelection(next);
         latest.current.onGuessChange(next);
+
         if (document.activeElement !== inputRef.current) {
             writeCoordinates();
         }
@@ -170,26 +175,32 @@ export default function MapDock({
     const frame = useCallback((duration = 0) => {
         const map = mapRef.current;
         const marker = markerRef.current;
+
         if (!map || !marker) {
             return;
         }
+
         const at = marker.getLngLat();
         const point = map.project(at);
         const canvas = map.getCanvas();
+
         if (
             point.x >= 24 && point.y >= 24 &&
             point.x <= canvas.clientWidth - 24 && point.y <= canvas.clientHeight - 24
         ) {
             return;
         }
+
         map.easeTo({ center: at, duration });
     }, []);
 
     const preserveCameraDuringResize = useCallback(() => {
         preserveCamera.current = true;
+
         if (preferenceResizeTimer.current !== null) {
             clearTimeout(preferenceResizeTimer.current);
         }
+
         preferenceResizeTimer.current = setTimeout(() => {
             preserveCamera.current = false;
             preferenceResizeTimer.current = null;
@@ -214,9 +225,11 @@ export default function MapDock({
     useEffect(() => {
         const container = canvasRef.current;
         const mapElement = mapElementRef.current;
+
         if (!container || !mapElement) {
             return;
         }
+
         const abort = new AbortController();
         let map: MapLibreMap | null = null;
         let observer: ResizeObserver | null = null;
@@ -224,19 +237,24 @@ export default function MapDock({
         let framePending: ReturnType<typeof setTimeout> | undefined;
         createBasemap(container, { signal: abort.signal, trackResize: false }).then((next) => {
             map = next;
+
             if (abort.signal.aborted) {
                 map.remove();
+
                 return;
             }
+
             mapRef.current = map;
             satelliteRef.current = installSatelliteLayer(map);
             destroyGestures = installMapGestures(map, container, navigation);
             map.on("click", (event) => setGuess(event.lngLat.wrap()));
             observer = new ResizeObserver(() => {
                 const preserve = preserveCamera.current;
+
                 if (preserve) {
                     preserveCameraDuringResize();
                 }
+
                 next.stop();
                 next.resize(undefined, !preserve);
                 next.redraw();
@@ -257,15 +275,18 @@ export default function MapDock({
                 latest.current.notify("Map unavailable. Reload to try again.");
             }
         });
+
         return () => {
             abort.abort();
             observer?.disconnect();
             destroyGestures?.();
             clearTimeout(framePending);
+
             if (preferenceResizeTimer.current !== null) {
                 clearTimeout(preferenceResizeTimer.current);
                 preferenceResizeTimer.current = null;
             }
+
             preserveCamera.current = false;
             markerRef.current?.remove();
             markerRef.current = null;
@@ -288,7 +309,9 @@ export default function MapDock({
         if (!ready || !solvedState || !mapRef.current) {
             return;
         }
+
         const guess = solvedState.guess;
+
         if (markerRef.current) {
             markerRef.current.setDraggable(false);
             markerRef.current.setLngLat([guess.lon, guess.lat]);
@@ -301,6 +324,7 @@ export default function MapDock({
                 "Your guess",
             );
         }
+
         setSelection(guess);
         setCoordinateOpen(false);
         setInvalid(false);
@@ -318,11 +342,15 @@ export default function MapDock({
         if (busy || !ready || solved || !mapRef.current) {
             return false;
         }
+
         const parsed = parseCoordinates(coordinates);
+
         if (!parsed) {
             setInvalid(true);
+
             return false;
         }
+
         editedRef.current = false;
         setInvalid(false);
         setGuess({ lng: parsed.lon, lat: parsed.lat });
@@ -330,6 +358,7 @@ export default function MapDock({
             center: [parsed.lon, parsed.lat],
             zoom: Math.max(mapRef.current.getZoom(), 12),
         });
+
         return true;
     }
 
@@ -337,17 +366,22 @@ export default function MapDock({
         if (busy || !ready) {
             return false;
         }
+
         if (defaults) {
             preserveCameraDuringResize();
             dock.resetPreferences();
             navigation.reset();
+
             return true;
         }
+
         if (await onReset()) {
             clear();
             mapRef.current?.easeTo({ center: [0, 20], zoom: 1, duration: 400 });
+
             return true;
         }
+
         return false;
     }
 
@@ -465,6 +499,7 @@ export default function MapDock({
                                 if (busy) {
                                     return;
                                 }
+
                                 setInvalid(false);
                                 setCoordinateOpen((open) => !open);
                             }}
@@ -506,6 +541,7 @@ export default function MapDock({
                                 if (event.key === "Enter") {
                                     event.preventDefault();
                                     event.stopPropagation();
+
                                     if (applyCoordinates()) {
                                         setCoordinateOpen(false);
                                     }

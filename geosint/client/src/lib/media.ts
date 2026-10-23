@@ -63,6 +63,7 @@ export function createMedia(
 
     function updateLoading(next: Partial<LoadingState>) {
         loading = { ...loading, ...next };
+
         if (!destroyed) {
             onLoading(loading);
         }
@@ -109,6 +110,7 @@ export function createMedia(
             done: false,
             error: true,
         });
+
         if (!destroyed) {
             onError(new Error(detail));
         }
@@ -140,8 +142,10 @@ export function createMedia(
                 if (request.status >= 200 && request.status < 300) {
                     if (!(request.response instanceof Blob)) {
                         finish(reject, new Error("Invalid imagery response"));
+
                         return;
                     }
+
                     const source = URL.createObjectURL(request.response);
                     sources.add(source);
                     finish(resolve, source);
@@ -162,6 +166,7 @@ export function createMedia(
         if (urls.length !== 6) {
             throw new Error("Cubemap requires six faces");
         }
+
         const loaded = urls.map(() => 0);
         const totals = urls.map(() => 0);
         const results = await Promise.allSettled(urls.map((url, index) => {
@@ -177,19 +182,24 @@ export function createMedia(
         const values = results.map((result) => {
             if (result.status === "rejected") {
                 releaseMedia();
+
                 throw result.reason;
             }
+
             return result.value;
         });
         const [front, right, back, left, up, down] = values;
+
         if (
             front === undefined || right === undefined || back === undefined ||
             left === undefined || up === undefined || down === undefined
         ) {
             throw new Error("Cubemap requires six faces");
         }
+
         return [front, right, back, left, up, down];
     }
+
     const { gestureControls, panMode } = navigation;
     let viewer: Pannellum.Viewer | null = null;
     let photoMap: PhotoMap | null = null;
@@ -226,11 +236,14 @@ export function createMedia(
 
             boundsOffset() {
                 const bounds = this.options.maxBounds;
+
                 if (!bounds) {
                     return L.point(0, 0);
                 }
+
                 const half = this.getSize().divideBy(2);
                 const middle = this.project(this.getCenter());
+
                 return this._getBoundsOffset(
                     L.bounds(middle.subtract(half), middle.add(half)),
                     bounds,
@@ -241,6 +254,7 @@ export function createMedia(
             zoomAroundFree(point: Point, zoom: number) {
                 const saved = this.options.maxBounds;
                 this.options.maxBounds = undefined;
+
                 try {
                     this.setZoomAround(
                         point,
@@ -261,6 +275,7 @@ export function createMedia(
         if (lastInput && since < 600) {
             inputGap = Math.max(since, inputGap * 0.85);
         }
+
         lastInput = now;
     }
 
@@ -282,6 +297,7 @@ export function createMedia(
         if (!photoMap) {
             return;
         }
+
         const seconds = Math.min((now - photoClock) / 1000, 0.05);
         photoClock = now;
 
@@ -307,6 +323,7 @@ export function createMedia(
             photoVx = 0;
             photoVy = 0;
             photoFrame = null;
+
             return;
         }
 
@@ -428,6 +445,7 @@ export function createMedia(
             photoTouched = false;
             fitPhoto();
             loaderDone();
+
             return;
         }
 
@@ -439,10 +457,13 @@ export function createMedia(
             if (media.type === "equirectangular") {
                 return { panorama: await fetchMedia(media.url, loaderProgress) };
             }
+
             if (media.type === "cubemap") {
                 return { cubeMap: await fetchAll(media.faces) };
             }
+
             loaderPending("Streaming tiles");
+
             return { multiRes: media.multiRes };
         })();
         const [, source] = await Promise.all([library, imagery]);
@@ -463,6 +484,11 @@ export function createMedia(
             hfov: 100,
         };
 
+        node.addEventListener("contextmenu", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+        }, { capture: true, signal: requests.signal });
+
         loaderPending("Preparing view");
         const panorama = window.pannellum.viewer(node, config);
         viewer = panorama;
@@ -471,6 +497,7 @@ export function createMedia(
             if (hfovTarget === null) {
                 return;
             }
+
             const current = panorama.getHfov();
             const remaining = hfovTarget - current;
 
@@ -478,6 +505,7 @@ export function createMedia(
                 panorama.setHfov(hfovTarget, 0);
                 hfovTarget = null;
                 hfovFrame = null;
+
                 return;
             }
 
@@ -493,11 +521,14 @@ export function createMedia(
                 if (hfovFrame !== null) {
                     cancelAnimationFrame(hfovFrame);
                 }
+
                 panorama.setHfov(hfovTarget, 0);
                 hfovTarget = null;
                 hfovFrame = null;
+
                 return;
             }
+
             if (hfovFrame === null) {
                 hfovFrame = requestAnimationFrame(stepZoom);
             }
@@ -548,9 +579,11 @@ export function createMedia(
             "wheel",
             (event) => {
                 event.preventDefault();
+
                 if (panMode()) {
                     return;
                 }
+
                 const pixels = event.deltaMode === 1
                     ? event.deltaY * 16
                     : event.deltaMode === 2
@@ -565,11 +598,13 @@ export function createMedia(
             releaseMedia();
             loaderDone();
         }
+
         panorama.on("load", finishLoading);
         panorama.on("error", (message) => {
             releaseMedia();
             loaderFailed(String(message));
         });
+
         if (panorama.isLoaded()) {
             finishLoading();
         }
@@ -579,6 +614,7 @@ export function createMedia(
         if (!photoMap || !photoBounds) {
             return;
         }
+
         const size = photoMap.getSize();
         photoMap.setMinZoom(
             Math.log2(Math.min(size.x / photoBounds[1][1], size.y / photoBounds[1][0])) - 0.4,
@@ -589,6 +625,7 @@ export function createMedia(
         if (!photoMap || !photoBounds) {
             return;
         }
+
         photoFitting = true;
         limitPhotoZoom();
         photoMap.fitBounds(photoBounds, { animate: false });
@@ -598,11 +635,14 @@ export function createMedia(
     function fitMedia() {
         if (viewer) {
             viewer.resize();
+
             return;
         }
+
         if (!photoMap) {
             return;
         }
+
         photoFitting = true;
         photoMap.invalidateSize({ animate: false });
         limitPhotoZoom();
@@ -611,6 +651,7 @@ export function createMedia(
         if (!photoTouched) {
             fitPhoto();
         }
+
         wakeSpring();
     }
 
@@ -618,9 +659,11 @@ export function createMedia(
         if (!viewer) {
             return;
         }
+
         if (hfovFrame !== null) {
             cancelAnimationFrame(hfovFrame);
         }
+
         hfovTarget = null;
         hfovFrame = null;
         viewer.setHfov(
@@ -635,6 +678,7 @@ export function createMedia(
     return {
         async mount(media) {
             updateLoading(loading);
+
             try {
                 await mountMedia(media);
             } catch (error) {
@@ -650,12 +694,15 @@ export function createMedia(
             requests.abort();
             observer.disconnect();
             cleanup.forEach((dispose) => dispose());
+
             if (photoFrame !== null) {
                 cancelAnimationFrame(photoFrame);
             }
+
             if (hfovFrame !== null) {
                 cancelAnimationFrame(hfovFrame);
             }
+
             viewer?.destroy();
             photoMap?.remove();
             releaseMedia();

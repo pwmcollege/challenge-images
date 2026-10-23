@@ -36,9 +36,11 @@ export function useDock(
     const sizeDock = useCallback((width: number, height: number) => {
         const dock = dockRef.current;
         const map = mapRef.current;
+
         if (!dock || !map) {
             return;
         }
+
         const style = getComputedStyle(dock);
         const chrome = dock.offsetHeight - map.offsetHeight;
         const maxWidth = Math.max(1, window.innerWidth - 28);
@@ -81,6 +83,7 @@ export function useDock(
         if (!ready) {
             return;
         }
+
         sizeRef.current = null;
         setSize(null);
         storeSize();
@@ -90,9 +93,11 @@ export function useDock(
         if (!sizeRef.current) {
             const dock = dockRef.current;
             const map = mapRef.current;
+
             if (!dock || !map) {
                 return null;
             }
+
             flushSync(() => setResizing(true));
             sizeRef.current = {
                 width: dock.offsetWidth,
@@ -100,6 +105,7 @@ export function useDock(
             };
             flushSync(() => setResizing(false));
         }
+
         return sizeRef.current;
     }
 
@@ -107,13 +113,16 @@ export function useDock(
         if (!ready || event.button !== 0 || !event.isPrimary) {
             return;
         }
+
         event.preventDefault();
         gripRef.current?.focus({ preventScroll: true });
         dragCleanup.current?.();
         const from = dockBase();
+
         if (!from) {
             return;
         }
+
         const fromX = event.clientX;
         const fromY = event.clientY;
         const fromWidth = from.width;
@@ -149,22 +158,29 @@ export function useDock(
         if (!ready) {
             return;
         }
+
         if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
             resetSize();
+
             return;
         }
+
         const step = event.shiftKey ? 40 : 10;
         const wider = event.key === "ArrowLeft" ? step : event.key === "ArrowRight" ? -step : 0;
         const taller = event.key === "ArrowUp" ? step : event.key === "ArrowDown" ? -step : 0;
+
         if (!wider && !taller) {
             return;
         }
+
         event.preventDefault();
         const from = dockBase();
+
         if (!from) {
             return;
         }
+
         sizeDock(from.width + wider, from.height + taller);
         storeSize();
     }
@@ -173,7 +189,9 @@ export function useDock(
         if (!ready) {
             return;
         }
+
         flushSync(() => setVisible(visible));
+
         if (visible) {
             onShow();
             hideRef.current?.focus({ preventScroll: true });
@@ -187,9 +205,11 @@ export function useDock(
             const dock = dockRef.current;
             const map = mapRef.current;
             const grip = gripRef.current;
+
             if (!dock || !map || !grip || grip.clientWidth === 0) {
                 return;
             }
+
             const style = getComputedStyle(dock);
             const border = parseFloat(style.borderTopWidth);
             const gap = map.getBoundingClientRect().left - dock.getBoundingClientRect().left -
@@ -206,26 +226,34 @@ export function useDock(
         }
 
         let saved = "";
+
         try {
             saved = localStorage.getItem("map-size") || "";
         } catch {
             saved = "";
         }
+
         const parts = saved.split("x");
+
         if (
             parts.length === 2 &&
             parts.every((part) => Number.isFinite(Number(part)) && Number(part) > 0)
         ) {
             sizeDock(Number(parts[0]), Number(parts[1]));
         }
+
         paintGrip();
+
         function resize() {
             paintGrip();
+
             if (sizeRef.current) {
                 sizeDock(sizeRef.current.width, sizeRef.current.height);
             }
         }
+
         window.addEventListener("resize", resize);
+
         return () => {
             window.removeEventListener("resize", resize);
             dragCleanup.current?.();
@@ -251,6 +279,7 @@ export function useDock(
             if (!ready) {
                 return;
             }
+
             resetSize();
             setZoomed(false);
         },

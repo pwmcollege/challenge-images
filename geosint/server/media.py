@@ -7,6 +7,7 @@ import secrets
 import shutil
 import subprocess
 import tempfile
+from itertools import product
 from pathlib import Path
 
 WEB_TYPES = {"JPEG": ".jpg", "PNG": ".png", "GIF": ".gif", "WEBP": ".webp"}
@@ -95,12 +96,7 @@ class Media:
         self.files = {}
         self.base_url = f"media/{secrets.token_hex(16)}"
 
-        if kind is not None and kind not in (
-            "image",
-            "equirectangular",
-            "cubemap",
-            "multires",
-        ):
+        if kind not in (None, "image", "equirectangular", "cubemap", "multires"):
             raise ValueError("Unsupported media kind")
 
         if not self.root.is_dir():
@@ -239,25 +235,20 @@ class Media:
             if len(tiles) + 6 * count * count > 100_000:
                 raise ValueError("Too many multires tiles")
 
-            for face in CUBE_FACES:
-                for x in range(count):
-                    for y in range(count):
-                        name = (
-                            pattern.replace("%l", str(level))
-                            .replace("%s", face)
-                            .replace("%x", str(x))
-                            .replace("%y", str(y))
-                        )
-                        tiles[f"{level}/{face}{y}_{x}"] = base / _multires_path(name)
+            for face, x, y in product(CUBE_FACES, range(count), range(count)):
+                name = (
+                    pattern.replace("%l", str(level))
+                    .replace("%s", face)
+                    .replace("%x", str(x))
+                    .replace("%y", str(y))
+                )
+                tiles[f"{level}/{face}{y}_{x}"] = base / _multires_path(name)
 
         if fallback is not None:
-            tiles.update(
-                {
-                    f"fallback/{face}": base
-                    / _multires_path(fallback.replace("%s", face))
-                    for face in CUBE_FACES
-                }
-            )
+            for face in CUBE_FACES:
+                tiles[f"fallback/{face}"] = base / _multires_path(
+                    fallback.replace("%s", face)
+                )
 
         for tile, source in sorted(tiles.items()):
             if "%" in str(source):
@@ -271,13 +262,13 @@ class Media:
             self._prepare_image(path, f"multires/{tile}", suffix=f".{extension}")
 
         result = {
-            key: config[key] for key in ("tileResolution", "cubeResolution", "maxLevel")
+            "tileResolution": config["tileResolution"],
+            "cubeResolution": config["cubeResolution"],
+            "maxLevel": config["maxLevel"],
+            "path": "/%l/%s%y_%x",
+            "basePath": f"{self.base_url}/multires",
+            "extension": extension,
         }
-        result.update(
-            path="/%l/%s%y_%x",
-            basePath=f"{self.base_url}/multires",
-            extension=extension,
-        )
 
         if fallback is not None:
             result["fallbackPath"] = "/fallback/%s"
