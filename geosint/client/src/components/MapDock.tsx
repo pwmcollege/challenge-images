@@ -52,6 +52,7 @@ interface MapDockProps {
     satellite: boolean;
     showFooter: boolean;
     onFooterChange: (visible: boolean) => void;
+    onFooterReset: () => void;
     guessStatus: "idle" | "wrong";
     onSatelliteChange: (visible: boolean) => void;
     onGuessChange: (coordinates: Coordinates | null) => void;
@@ -68,6 +69,7 @@ export default function MapDock({
     satellite,
     showFooter,
     onFooterChange,
+    onFooterReset,
     guessStatus,
     onSatelliteChange,
     onGuessChange,
@@ -101,7 +103,7 @@ export default function MapDock({
     const ready = mapReady && state !== null;
     const canGuess = selection !== null || solved;
     const controlsHeight = `calc(100% - ${1 + (coordinateOpen ? 2.625 : 0) + (canGuess ? 2.625 : 0)}rem)`;
-    const controlGap = coordinateOpen && canGuess ? "0.25rem" : "0.5rem";
+    const controlGap = "0.5rem";
     const actionTransition = {
         duration: reducedMotion ? 0 : 0.2,
         ease: [0.32, 0.72, 0, 1] as const,
@@ -417,6 +419,7 @@ export default function MapDock({
                     preserveCameraDuringResize();
                     dock.resetPreferences();
                     navigation.reset();
+                    onFooterReset();
                 }}
             />
             <m.section
@@ -493,7 +496,10 @@ export default function MapDock({
                             aria-pressed={dock.zoomed}
                             title={dock.zoomed ? "Exit fullscreen map" : "Fullscreen map"}
                             aria-label={dock.zoomed ? "Exit fullscreen map" : "Fullscreen map"}
-                            onClick={dock.toggleZoom}
+                            onClick={(event) => {
+                                event.currentTarget.focus({ preventScroll: true });
+                                dock.toggleZoom();
+                            }}
                         >
                             {dock.zoomed ? (
                                 <Minimize2 aria-hidden="true" />

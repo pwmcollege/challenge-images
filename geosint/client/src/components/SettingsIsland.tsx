@@ -268,7 +268,6 @@ export default function SettingsIsland({
                     disabled={disabled}
                     onClick={() => {
                         onResetPreferences();
-                        onFooterChange(true);
                         setRestoreCount((count) => count + 1);
                         setStatus("Defaults restored. Your pin stays.");
                     }}

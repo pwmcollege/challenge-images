@@ -45,11 +45,7 @@ export function useDock({
         setSide(next);
 
         try {
-            if (next === "right") {
-                localStorage.removeItem("map-side");
-            } else {
-                localStorage.setItem("map-side", "left");
-            }
+            localStorage.setItem("map-side", next);
         } catch {
             return;
         }
@@ -288,8 +284,14 @@ export function useDock({
             }
 
             resetSize();
-            changeSide("right");
+            setSide("right");
             setZoomed(false);
+
+            try {
+                localStorage.removeItem("map-side");
+            } catch {
+                return;
+            }
         },
         toggleZoom: () => ready && setZoomed((value) => !value),
         hide: () => show(false),

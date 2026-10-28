@@ -39,9 +39,9 @@ export default function App() {
     const [satellite, setSatellite] = useState(false);
     const [showFooter, setShowFooter] = useState(() => {
         try {
-            return localStorage.getItem("show-footer") !== "false";
+            return localStorage.getItem("show-footer") === "true";
         } catch {
-            return true;
+            return false;
         }
     });
     const [guessStatus, setGuessStatus] = useState<"idle" | "wrong">("idle");
@@ -64,11 +64,17 @@ export default function App() {
         setShowFooter(visible);
 
         try {
-            if (visible) {
-                localStorage.removeItem("show-footer");
-            } else {
-                localStorage.setItem("show-footer", "false");
-            }
+            localStorage.setItem("show-footer", String(visible));
+        } catch {
+            return;
+        }
+    }
+
+    function resetFooter() {
+        setShowFooter(false);
+
+        try {
+            localStorage.removeItem("show-footer");
         } catch {
             return;
         }
@@ -302,6 +308,7 @@ export default function App() {
                     satellite={satellite}
                     showFooter={showFooter}
                     onFooterChange={changeFooter}
+                    onFooterReset={resetFooter}
                     guessStatus={guessStatus}
                     onSatelliteChange={setSatellite}
                     onGuessChange={selectGuess}
