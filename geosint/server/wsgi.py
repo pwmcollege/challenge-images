@@ -32,7 +32,7 @@ def distance_km(lat, lon, target_lat, target_lon):
 
 
 def load_config():
-    config = json.loads(Path("/challenge/config.json").read_text())
+    config = json.loads(Path("/challenge/config.json").read_text(encoding="utf-8"))
 
     if not isinstance(config, dict):
         raise TypeError("Challenge config must be an object.")
@@ -100,8 +100,8 @@ def asset():
     return send_file(Path(app.static_folder).parent / "index.html")
 
 
-@app.get("/api/state")
-def state():
+@app.get("/api/data")
+def data():
     with lock:
         return jsonify(public_state())
 
@@ -121,7 +121,7 @@ def guess():
     try:
         guess_lat = finite_number(body["lat"])
         guess_lon = finite_number(body["lon"])
-    except (KeyError, TypeError, ValueError, OverflowError):
+    except KeyError, TypeError, ValueError, OverflowError:
         return jsonify(error="Latitude and longitude are required."), 400
 
     if not -90 <= guess_lat <= 90 or not -180 <= guess_lon <= 180:

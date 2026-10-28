@@ -28,8 +28,8 @@ export function greatCircle(from: Coordinates, to: Coordinates): [number, number
 
     if (!d) {
         return [
-            [from.lat, from.lon],
-            [to.lat, to.lon],
+            [from.lon, from.lat],
+            [to.lon, to.lat],
         ];
     }
 
@@ -52,7 +52,7 @@ export function greatCircle(from: Coordinates, to: Coordinates): [number, number
 
         lon += offset;
         previousLon = lon;
-        points.push([Math.atan2(z, Math.hypot(x, y)) * toDeg, lon]);
+        points.push([lon, Math.atan2(z, Math.hypot(x, y)) * toDeg]);
     }
 
     return points;

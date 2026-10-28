@@ -1,11 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import type {
-    CSSProperties,
-    KeyboardEvent,
-    PointerEvent as ReactPointerEvent,
-    RefObject,
-} from "react";
+import type { KeyboardEvent, PointerEvent as ReactPointerEvent, RefObject } from "react";
 import { flushSync } from "react-dom";
+import type { MotionStyle } from "motion/react";
 
 interface DockSize {
     width: number;
@@ -22,47 +18,76 @@ interface DockOptions {
     onShow: () => void;
 }
 
-export function useDock(
-    { dockRef, mapRef, gripRef, hideRef, showRef, ready, onShow }: DockOptions,
-) {
+export function useDock({
+    dockRef,
+    mapRef,
+    gripRef,
+    hideRef,
+    showRef,
+    ready,
+    onShow,
+}: DockOptions) {
     const [visible, setVisible] = useState(true);
     const [zoomed, setZoomed] = useState(false);
     const [resizing, setResizing] = useState(false);
     const [size, setSize] = useState<DockSize | null>(null);
-    const [gripPath, setGripPath] = useState("M25 4 H20.5 A16.5 16.5 0 0 0 4 20.5 V25");
+    const [side, setSide] = useState<"left" | "right">(() => {
+        try {
+            return localStorage.getItem("map-side") === "left" ? "left" : "right";
+        } catch {
+            return "right";
+        }
+    });
     const sizeRef = useRef<DockSize | null>(null);
     const dragCleanup = useRef<(() => void) | null>(null);
 
-    const sizeDock = useCallback((width: number, height: number) => {
-        const dock = dockRef.current;
-        const map = mapRef.current;
+    function changeSide(next: "left" | "right") {
+        setSide(next);
 
-        if (!dock || !map) {
+        try {
+            localStorage.setItem("map-side", next);
+        } catch {
             return;
         }
+    }
 
-        const style = getComputedStyle(dock);
-        const chrome = dock.offsetHeight - map.offsetHeight;
-        const maxWidth = Math.max(1, window.innerWidth - 28);
-        const maxHeight = Math.max(
-            1,
-            (window.visualViewport?.height || window.innerHeight) -
-                14 - (parseFloat(style.bottom) || 14) - chrome,
-        );
-        const minWidth = Math.min(
-            maxWidth,
-            Math.max(220, parseFloat(style.getPropertyValue("--dock-w")) || 0),
-        );
-        const minHeight = Math.min(
-            maxHeight,
-            Math.max(150, parseFloat(style.getPropertyValue("--dock-h")) || 0),
-        );
-        sizeRef.current = {
-            width: Math.round(Math.min(Math.max(width, minWidth), maxWidth)),
-            height: Math.round(Math.min(Math.max(height, minHeight), maxHeight)),
-        };
-        setSize(sizeRef.current);
-    }, [dockRef, mapRef]);
+    const sizeDock = useCallback(
+        (width: number, height: number) => {
+            const dock = dockRef.current;
+            const map = mapRef.current;
+
+            if (!dock || !map) {
+                return;
+            }
+
+            const style = getComputedStyle(dock);
+            const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+            const edge = 0.875 * rem;
+            const chrome = dock.offsetHeight - map.offsetHeight;
+            const maxWidth = Math.max(1, window.innerWidth - edge * 2);
+            const maxHeight = Math.max(
+                1,
+                (window.visualViewport?.height || window.innerHeight) -
+                    edge -
+                    (parseFloat(style.bottom) || edge) -
+                    chrome,
+            );
+            const minWidth = Math.min(
+                maxWidth,
+                Math.max(13.75, parseFloat(style.getPropertyValue("--dock-w")) || 0) * rem,
+            );
+            const minHeight = Math.min(
+                maxHeight,
+                Math.max(9.375, parseFloat(style.getPropertyValue("--dock-h")) || 0) * rem,
+            );
+            sizeRef.current = {
+                width: Math.round(Math.min(Math.max(width, minWidth), maxWidth)),
+                height: Math.round(Math.min(Math.max(height, minHeight), maxHeight)),
+            };
+            setSize(sizeRef.current);
+        },
+        [dockRef, mapRef],
+    );
 
     function storeSize() {
         try {
@@ -130,7 +155,10 @@ export function useDock(
         setResizing(true);
 
         function move(next: PointerEvent) {
-            sizeDock(fromWidth + fromX - next.clientX, fromHeight + fromY - next.clientY);
+            sizeDock(
+                fromWidth + (next.clientX - fromX) * (side === "left" ? 1 : -1),
+                fromHeight + fromY - next.clientY,
+            );
         }
 
         function cleanup() {
@@ -167,7 +195,9 @@ export function useDock(
         }
 
         const step = event.shiftKey ? 40 : 10;
-        const wider = event.key === "ArrowLeft" ? step : event.key === "ArrowRight" ? -step : 0;
+        const wider =
+            (event.key === "ArrowLeft" ? step : event.key === "ArrowRight" ? -step : 0) *
+            (side === "left" ? -1 : 1);
         const taller = event.key === "ArrowUp" ? step : event.key === "ArrowDown" ? -step : 0;
 
         if (!wider && !taller) {
@@ -201,30 +231,6 @@ export function useDock(
     }
 
     useLayoutEffect(() => {
-        function paintGrip() {
-            const dock = dockRef.current;
-            const map = mapRef.current;
-            const grip = gripRef.current;
-
-            if (!dock || !map || !grip || grip.clientWidth === 0) {
-                return;
-            }
-
-            const style = getComputedStyle(dock);
-            const border = parseFloat(style.borderTopWidth);
-            const gap = map.getBoundingClientRect().left - dock.getBoundingClientRect().left -
-                border;
-            const outer = parseFloat(style.borderTopLeftRadius) - border;
-            const inner = parseFloat(getComputedStyle(map).borderTopLeftRadius);
-            const radius = (outer + inner) / 2;
-            const centre = (outer + gap + inner) / 2;
-            const arm = centre - radius;
-            const tip = grip.clientWidth - 5;
-            setGripPath(
-                `M${tip} ${arm} H${centre} A${radius} ${radius} 0 0 0 ${arm} ${centre} V${tip}`,
-            );
-        }
-
         let saved = "";
 
         try {
@@ -242,11 +248,7 @@ export function useDock(
             sizeDock(Number(parts[0]), Number(parts[1]));
         }
 
-        paintGrip();
-
         function resize() {
-            paintGrip();
-
             if (sizeRef.current) {
                 sizeDock(sizeRef.current.width, sizeRef.current.height);
             }
@@ -258,20 +260,21 @@ export function useDock(
             window.removeEventListener("resize", resize);
             dragCleanup.current?.();
         };
-    }, [dockRef, mapRef, gripRef, sizeDock]);
+    }, [dockRef, mapRef, sizeDock]);
 
-    const style: (CSSProperties & Record<"--dock-w-open" | "--dock-h-open", string>) | undefined =
+    const style: (MotionStyle & Record<"--dock-w-open" | "--dock-h-open", string>) | undefined =
         size
             ? { "--dock-w-open": size.width + "px", "--dock-h-open": size.height + "px" }
             : undefined;
 
     return {
+        side,
+        changeSide,
+        size,
         visible,
         zoomed,
-        className: [!visible && "map-hidden", zoomed && "zoomed", resizing && "pinned resizing"]
-            .filter(Boolean).join(" "),
+        className: [zoomed && "zoomed", resizing && "pinned resizing"].filter(Boolean).join(" "),
         style,
-        gripPath,
         startResize,
         nudgeSize,
         resetSize,
@@ -281,6 +284,7 @@ export function useDock(
             }
 
             resetSize();
+            changeSide("right");
             setZoomed(false);
         },
         toggleZoom: () => ready && setZoomed((value) => !value),

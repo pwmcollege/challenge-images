@@ -29,7 +29,6 @@ export interface LoadingState {
 
 export interface MediaHandle {
     zoom(delta: number): void;
-    fit(): void;
 }
 
 export interface MediaController extends MediaHandle {
@@ -47,7 +46,6 @@ export function createMedia(
     node: HTMLElement,
     navigation: Navigation,
     onLoading: (state: LoadingState) => void,
-    onError: (error: Error) => void,
 ): MediaController {
     const requests = new AbortController();
     const cleanup: (() => void)[] = [];
@@ -110,10 +108,6 @@ export function createMedia(
             done: false,
             error: true,
         });
-
-        if (!destroyed) {
-            onError(new Error(detail));
-        }
     }
 
     function fetchMedia(url: string, onProgress: (loaded: number, total: number) => void) {
@@ -181,8 +175,6 @@ export function createMedia(
         }));
         const values = results.map((result) => {
             if (result.status === "rejected") {
-                releaseMedia();
-
                 throw result.reason;
             }
 
@@ -362,6 +354,7 @@ export function createMedia(
                 maxZoom: 4,
                 zoomSnap: 0,
                 scrollWheelZoom: false,
+                trackResize: false,
                 attributionControl: false,
                 maxBoundsViscosity: 0.5,
             });
@@ -471,17 +464,13 @@ export function createMedia(
         const config = {
             ...source,
             type: media.type,
-            autoLoad: true,
+            autoLoad: false,
             mouseZoom: false,
             showZoomCtrl: false,
             showFullscreenCtrl: false,
             compass: false,
-            friction: 0.15,
             minHfov: 30,
             maxHfov: 120,
-            yaw: 0,
-            pitch: 0,
-            hfov: 100,
         };
 
         node.addEventListener("contextmenu", (event) => {
@@ -490,7 +479,10 @@ export function createMedia(
         }, { capture: true, signal: requests.signal });
 
         loaderPending("Preparing view");
-        const panorama = window.pannellum.viewer(node, config);
+        const panorama = window.pannellum.viewer(node, {
+            default: { ...config, firstScene: "media" },
+            scenes: { media: {} },
+        });
         viewer = panorama;
 
         function stepZoom() {
@@ -594,20 +586,13 @@ export function createMedia(
             { passive: false, signal: requests.signal },
         );
 
-        function finishLoading() {
+        panorama.on("load", () => {
             releaseMedia();
             loaderDone();
-        }
-
-        panorama.on("load", finishLoading);
-        panorama.on("error", (message) => {
-            releaseMedia();
-            loaderFailed(String(message));
         });
+        panorama.on("error", (message) => loaderFailed(String(message)));
 
-        if (panorama.isLoaded()) {
-            finishLoading();
-        }
+        panorama.loadScene("media");
     }
 
     function limitPhotoZoom() {
@@ -687,7 +672,6 @@ export function createMedia(
                 }
             }
         },
-        fit: fitMedia,
         zoom: zoomPano,
         destroy() {
             destroyed = true;

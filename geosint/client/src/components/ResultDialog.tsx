@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, X } from "lucide-react";
 import { LngLatBounds } from "maplibre-gl";
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 import {
     addRevealLayer,
     createBasemap,
+    installMapGestures,
     installSatelliteLayer,
     lineBetween,
     pinAt,
@@ -12,8 +13,10 @@ import {
 import { offsetReadout } from "../lib/geo.ts";
 import Button from "./Button.tsx";
 import type { ChallengeState } from "../types.ts";
+import type { Navigation } from "../lib/navigation.ts";
 
 interface ResultDialogProps {
+    navigation: Navigation;
     state: Extract<ChallengeState, { solved: true }>;
     open: boolean;
     satellite: boolean;
@@ -21,13 +24,18 @@ interface ResultDialogProps {
     notify: (message: string) => void;
 }
 
-export default function ResultDialog(
-    { state, open, satellite, onClose, notify }: ResultDialogProps,
-) {
+export default function ResultDialog({
+    navigation,
+    state,
+    open,
+    satellite,
+    onClose,
+    notify,
+}: ResultDialogProps) {
     const dialogRef = useRef<HTMLDialogElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const flagRef = useRef<HTMLElement>(null);
-    const doneRef = useRef<HTMLButtonElement>(null);
+    const titleRef = useRef<HTMLHeadingElement>(null);
     const [map, setMap] = useState<MapLibreMap | null>(null);
     const [copied, setCopied] = useState(false);
     const satelliteRef = useRef<((visible: boolean) => void) | null>(null);
@@ -45,7 +53,7 @@ export default function ResultDialog(
                 dialog.showModal();
             }
 
-            doneRef.current?.focus();
+            titleRef.current?.focus({ preventScroll: true });
         } else {
             dialog.close();
         }
@@ -61,23 +69,25 @@ export default function ResultDialog(
         let disposed = false;
         let current: MapLibreMap | null = null;
         const controller = new AbortController();
-        createBasemap(container, { signal: controller.signal }).then((next) => {
-            if (disposed) {
-                next.remove();
+        createBasemap(container, { signal: controller.signal })
+            .then((next) => {
+                if (disposed) {
+                    next.remove();
 
-                return;
-            }
+                    return;
+                }
 
-            current = next;
-            activeMap.current = next;
-            satelliteRef.current = installSatelliteLayer(next);
-            addRevealLayer(next);
-            setMap(next);
-        }).catch(() => {
-            if (!disposed) {
-                notify("Result map unavailable.");
-            }
-        });
+                current = next;
+                activeMap.current = next;
+                satelliteRef.current = installSatelliteLayer(next);
+                addRevealLayer(next);
+                setMap(next);
+            })
+            .catch(() => {
+                if (!disposed) {
+                    notify("Result map unavailable.");
+                }
+            });
 
         return () => {
             disposed = true;
@@ -86,6 +96,14 @@ export default function ResultDialog(
             current?.remove();
         };
     }, [notify]);
+
+    useEffect(() => {
+        if (!map || !containerRef.current) {
+            return;
+        }
+
+        return installMapGestures(map, containerRef.current, navigation);
+    }, [map, navigation]);
 
     useEffect(() => {
         if (map) {
@@ -184,9 +202,20 @@ export default function ResultDialog(
                 onClose();
             }}
         >
-            <div className="result-card w-full max-w-130 overflow-auto overscroll-contain rounded-lg border border-solid border-hairline bg-material-strong shadow-dialog glass">
+            <div className="result-card relative w-full max-w-130 overflow-auto overscroll-contain rounded-lg border border-solid border-hairline bg-material-strong shadow-dialog glass">
                 <div ref={containerRef} id="result-map" />
-                <div className="px-5 pt-4.5 pb-0.5">
+                <Button
+                    type="button"
+                    id="btn-result-close"
+                    variant="bare"
+                    className="absolute top-0 right-0 z-10 size-control rounded-md text-foreground focus-visible:-outline-offset-4"
+                    aria-label="Close result"
+                    title="Close result"
+                    onClick={onClose}
+                >
+                    <X aria-hidden="true" />
+                </Button>
+                <div className="px-5 pt-4.5 pb-5">
                     <div className="flex items-start gap-result">
                         <span
                             className="grid size-7.5 shrink-0 place-items-center rounded-full bg-good text-ink"
@@ -197,6 +226,8 @@ export default function ResultDialog(
                         <div className="min-w-0">
                             <h2
                                 id="result-title"
+                                ref={titleRef}
+                                tabIndex={-1}
                                 className="m-0 text-title font-semibold tracking-title"
                             >
                                 Found it
@@ -231,24 +262,14 @@ export default function ResultDialog(
                                 aria-label="Copy flag"
                                 onClick={copyFlag}
                             >
-                                {copied
-                                    ? <Check aria-hidden="true" />
-                                    : <Copy aria-hidden="true" />}
+                                {copied ? (
+                                    <Check aria-hidden="true" />
+                                ) : (
+                                    <Copy aria-hidden="true" />
+                                )}
                             </Button>
                         </div>
                     </div>
-                </div>
-                <div className="px-5 pt-4.5 pb-5">
-                    <Button
-                        type="button"
-                        id="btn-done"
-                        ref={doneRef}
-                        variant="primary"
-                        className="w-full"
-                        onClick={onClose}
-                    >
-                        Done
-                    </Button>
                 </div>
             </div>
         </dialog>

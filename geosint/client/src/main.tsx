@@ -1,3 +1,4 @@
+import { domMax, LazyMotion, MotionConfig } from "motion/react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
@@ -11,6 +12,10 @@ if (!root) {
 
 createRoot(root).render(
     <StrictMode>
-        <App />
+        <LazyMotion features={domMax} strict>
+            <MotionConfig reducedMotion="user">
+                <App />
+            </MotionConfig>
+        </LazyMotion>
     </StrictMode>,
 );

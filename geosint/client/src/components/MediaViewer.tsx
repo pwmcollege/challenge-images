@@ -12,24 +12,19 @@ interface MediaViewerProps {
     media: MediaConfig | null;
     navigation: Navigation;
     onLoading(state: LoadingState): void;
-    onError?(error: Error): void;
     ref?: Ref<MediaHandle>;
 }
 
 export default function MediaViewer(
-    { media, navigation, onLoading, onError, ref }: MediaViewerProps,
+    { media, navigation, onLoading, ref }: MediaViewerProps,
 ) {
     const container = useRef<HTMLDivElement>(null);
     const controller = useRef<MediaController | null>(null);
     const loading = useEffectEvent((state: LoadingState) => onLoading(state));
-    const failed = useEffectEvent((error: Error) => onError?.(error));
 
     useImperativeHandle(ref, () => ({
         zoom(delta: number) {
             controller.current?.zoom(delta);
-        },
-        fit() {
-            controller.current?.fit();
         },
     }), []);
 
@@ -38,7 +33,7 @@ export default function MediaViewer(
             return;
         }
 
-        const view = createMedia(container.current, navigation, loading, failed);
+        const view = createMedia(container.current, navigation, loading);
         controller.current = view;
         view.mount(media);
 
@@ -52,6 +47,7 @@ export default function MediaViewer(
         <div
             id="pano"
             ref={container}
+            style={{ position: "absolute" }}
             aria-label={media?.kind === "image" ? "Challenge photograph" : "360 degree panorama"}
         />
     );

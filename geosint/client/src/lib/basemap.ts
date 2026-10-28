@@ -196,10 +196,10 @@ function satelliteStyle(layer: LayerSpecification): SatelliteRule[] | null {
         const start = /_mot_/.test(id)
             ? 7.5
             : /_trunk_/.test(id)
-            ? 8.5
-            : /_pri_/.test(id)
-            ? 9
-            : 10.5;
+              ? 8.5
+              : /_pri_/.test(id)
+                ? 9
+                : 10.5;
 
         return [
             [
@@ -236,17 +236,17 @@ export function installSatelliteLayer(map: MapLibreMap) {
 
     const satellitePlan: (
         | {
-            id: string;
-            prop: "visibility";
-            on: VisibilitySpecification;
-            off: VisibilitySpecification;
-        }
+              id: string;
+              prop: "visibility";
+              on: VisibilitySpecification;
+              off: VisibilitySpecification;
+          }
         | {
-            id: string;
-            prop: SatellitePaintProperty;
-            on: SatellitePaintValue;
-            off: SatellitePaintValue;
-        }
+              id: string;
+              prop: SatellitePaintProperty;
+              on: SatellitePaintValue;
+              off: SatellitePaintValue;
+          }
     )[] = [];
     layers.forEach((layer) => {
         const rules = satelliteStyle(layer);
@@ -293,17 +293,22 @@ export function installSatelliteLayer(map: MapLibreMap) {
     const state: {
         abort: AbortController | null;
         defaultMaxZoom: number;
+        adjusting: boolean;
         enabled: boolean;
         revision: number;
         timer: ReturnType<typeof setTimeout> | undefined;
     } = {
         abort: null,
         defaultMaxZoom: map.getMaxZoom(),
+        adjusting: false,
         enabled: false,
         revision: 0,
         timer: undefined,
     };
-    map.on("moveend", queueSatelliteLimit);
+    map.on("moveend", () => {
+        state.adjusting = false;
+        queueSatelliteLimit();
+    });
     map.on("remove", () => {
         clearTimeout(state.timer);
         state.abort?.abort();
@@ -317,6 +322,7 @@ export function installSatelliteLayer(map: MapLibreMap) {
         if (on) {
             queueSatelliteLimit();
         } else {
+            if (state.adjusting) map.stop();
             state.revision++;
             clearTimeout(state.timer);
 
@@ -409,10 +415,6 @@ export function installSatelliteLayer(map: MapLibreMap) {
         const at = map.getCenter();
         let maxZoom = map.getMinZoom();
 
-        if (state.abort) {
-            state.abort.abort();
-        }
-
         state.abort = abort;
         const timer = setTimeout(() => {
             abort.abort();
@@ -443,16 +445,17 @@ export function installSatelliteLayer(map: MapLibreMap) {
             }
         }
 
-        if (!state.enabled || state.revision !== revision) {
+        if (!state.enabled || state.revision !== revision || map.isMoving()) {
             return;
         }
 
         const limit = Math.min(state.defaultMaxZoom, maxZoom);
 
-        map.setMaxZoom(limit);
-
-        if (map.getZoom() > limit) {
-            map.jumpTo({ zoom: limit });
+        if (map.getZoom() > limit + 1e-6) {
+            state.adjusting = true;
+            map.easeTo({ zoom: limit, duration: 400 });
+        } else {
+            map.setMaxZoom(limit);
         }
     }
 
@@ -513,7 +516,8 @@ export function createPin(light: string, dark: string, className: string) {
     root.append(
         defs,
         svgNode("path", {
-            d: "M18 37.8 C20.2 34.3 26.3 29.2 29.37 25.15 A14 14 0 1 0 6.63 25.15" +
+            d:
+                "M18 37.8 C20.2 34.3 26.3 29.2 29.37 25.15 A14 14 0 1 0 6.63 25.15" +
                 " C9.7 29.2 15.8 34.3 18 37.8 Z",
             fill: "#fff",
         }),
@@ -614,9 +618,7 @@ export function lineBetween(
                 properties: {},
                 geometry: {
                     type: "LineString",
-                    coordinates: greatCircle(from, to).map((point) => {
-                        return [point[1], point[0]];
-                    }),
+                    coordinates: greatCircle(from, to),
                 },
             },
         ],

@@ -9,6 +9,6 @@ find /challenge -type f -exec chmod 0600 {} +
 cd /opt/geosint/server
 
 gunicorn --daemon
-until curl -fs localhost:80/api/state >/dev/null; do sleep 0.1; done
+until curl -fs localhost:80/api/data >/dev/null; do sleep 0.1; done
 
 rm /flag

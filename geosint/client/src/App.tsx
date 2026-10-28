@@ -1,5 +1,6 @@
+import * as m from "motion/react-m";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { Hand, Minus, Mouse, Plus, Target } from "lucide-react";
+import { Minus, Plus } from "lucide-react";
 import Button from "./components/Button.tsx";
 import Loader from "./components/Loader.tsx";
 import MediaViewer from "./components/MediaViewer.tsx";
@@ -32,11 +33,17 @@ async function api<T>(path: string, options: RequestInit = {}): Promise<ApiRespo
 
 export default function App() {
     const [navigation] = useState(createNavigation);
-    const [panMode, setPanMode] = useState(() => navigation.panMode());
     const [state, setState] = useState<ChallengeState | null>(null);
     const [media, setMedia] = useState<MediaConfig | null>(null);
     const [busy, setBusy] = useState(false);
     const [satellite, setSatellite] = useState(false);
+    const [showFooter, setShowFooter] = useState(() => {
+        try {
+            return localStorage.getItem("show-footer") !== "false";
+        } catch {
+            return true;
+        }
+    });
     const [guessStatus, setGuessStatus] = useState<"idle" | "wrong">("idle");
     const [resultView, setResultView] = useState<"idle" | "open" | "closed">("idle");
     const [toast, setToast] = useState<{ message: string } | null>(null);
@@ -53,6 +60,16 @@ export default function App() {
     const pending = useRef(false);
     const notify = useCallback((message: string) => setToast({ message }), []);
 
+    function changeFooter(visible: boolean) {
+        setShowFooter(visible);
+
+        try {
+            localStorage.setItem("show-footer", String(visible));
+        } catch {
+            return;
+        }
+    }
+
     const acceptState = useCallback((next: ChallengeState) => {
         setState(next);
         setMedia((current) => current || next.media);
@@ -62,8 +79,6 @@ export default function App() {
         guess.current = next;
         setGuessStatus("idle");
     }, []);
-
-    useEffect(() => navigation.onModeChange(setPanMode), [navigation]);
 
     useEffect(() => {
         if (!toast) {
@@ -78,24 +93,26 @@ export default function App() {
     useEffect(() => {
         const controller = new AbortController();
 
-        api<ChallengeState>("api/state", { signal: controller.signal }).then(({ ok, body }) => {
-            if (!ok) {
-                throw new Error(body.error || "Could not load challenge");
-            }
+        api<ChallengeState>("api/data", { signal: controller.signal })
+            .then(({ ok, body }) => {
+                if (!ok) {
+                    throw new Error(body.error || "Could not load challenge");
+                }
 
-            acceptState(body);
-        }).catch(() => {
-            if (!controller.signal.aborted) {
-                notify("Could not reach the server. Try again.");
-                setLoading({
-                    title: "Could not load imagery",
-                    detail: "Could not load challenge. Reload to try again.",
-                    progress: 100,
-                    done: false,
-                    error: true,
-                });
-            }
-        });
+                acceptState(body);
+            })
+            .catch(() => {
+                if (!controller.signal.aborted) {
+                    notify("Could not reach the server. Try again.");
+                    setLoading({
+                        title: "Could not load imagery",
+                        detail: "Could not load challenge. Reload to try again.",
+                        progress: 100,
+                        done: false,
+                        error: true,
+                    });
+                }
+            });
 
         return () => controller.abort();
     }, [acceptState, notify]);
@@ -129,16 +146,14 @@ export default function App() {
             let response = await api<GuessResponse>("api/guess", options);
 
             if (!response.ok && response.status === 429) {
-                const wait = Math.min(
-                    1000,
-                    Math.max(0, Number(response.body.retry_after) || 0) * 1000,
-                ) + 80;
+                const wait =
+                    Math.min(1000, Math.max(0, Number(response.body.retry_after) || 0) * 1000) + 80;
                 await new Promise<void>((resolve) => setTimeout(resolve, wait));
                 response = await api<GuessResponse>("api/guess", options);
             }
 
             if (!response.ok && response.status === 409) {
-                const current = await api<ChallengeState>("api/state");
+                const current = await api<ChallengeState>("api/data");
 
                 if (current.ok) {
                     acceptState(current.body);
@@ -158,7 +173,6 @@ export default function App() {
             acceptState(response.body.state);
 
             if (response.body.outcome === "wrong") {
-                // mapRef.current?.clear();
                 setGuessStatus("wrong");
             } else {
                 setResultView("open");
@@ -208,7 +222,8 @@ export default function App() {
     useEffect(() => {
         function keyDown(event: KeyboardEvent) {
             if (
-                event.key !== "Enter" || event.defaultPrevented ||
+                event.key !== "Enter" ||
+                event.defaultPrevented ||
                 (event.target instanceof Element &&
                     event.target.closest(
                         "input, textarea, button, a, [contenteditable], [role=button]",
@@ -230,7 +245,7 @@ export default function App() {
     }, [busy, closeResult, resultView, state?.solved, submitGuess]);
 
     return (
-        <div id="stage" className="no-hud relative h-full">
+        <div id="stage" className="relative h-full">
             <MediaViewer
                 ref={mediaRef}
                 media={media}
@@ -241,7 +256,7 @@ export default function App() {
                 className="pano-controls flex flex-col gap-1.75"
                 hidden={media?.kind !== "pano" || loading.error}
             >
-                <div className="flex flex-col [&>button:first-child]:rounded-b-none [&>button:first-child]:border-b-separator [&>button:last-child]:rounded-t-none [&>button:last-child]:border-t-0">
+                <div className="flex h-19 flex-col [&>button]:h-1/2 [&>button:first-child]:rounded-b-none [&>button:first-child]:border-b-separator [&>button:last-child]:rounded-t-none [&>button:last-child]:border-t-0">
                     <Button
                         type="button"
                         id="btn-pano-in"
@@ -262,30 +277,18 @@ export default function App() {
                     </Button>
                 </div>
             </div>
-            <header
-                id="hud"
-                className="pointer-events-none absolute inset-x-0 top-0 z-400 flex items-center gap-2 p-3.5 [&>*]:pointer-events-auto"
-                hidden
-            >
-                <span
-                    className="inline-flex h-control items-center justify-center gap-1.75 whitespace-nowrap rounded-md border border-solid border-hairline bg-material px-3.25 font-semibold tracking-control text-foreground tabular-nums glass"
-                    id="pill-threshold"
-                >
-                    <Target className="size-4 shrink-0 stroke-2 text-muted" aria-hidden="true" />
-                    <span>within - km</span>
-                </span>
-            </header>
             <Loader {...loading} />
-            <div
+            <m.div
+                initial={false}
+                animate={{ opacity: toast ? 1 : 0 }}
+                transition={{ duration: 0.18 }}
                 id="toast"
-                className={`pointer-events-none absolute left-1/2 top-15.5 z-400 max-w-toast -translate-x-1/2 rounded-md border border-solid border-hairline bg-material-strong px-4 py-2.5 text-bad shadow-control glass transition-opacity duration-180 ease-control ${
-                    toast ? "opacity-100" : "opacity-0"
-                }`}
+                className="pointer-events-none absolute left-1/2 top-15.5 z-400 max-w-toast -translate-x-1/2 rounded-md border border-solid border-hairline bg-material-strong px-4 py-2.5 text-bad shadow-control glass"
                 role="status"
                 aria-live="polite"
             >
                 {toast?.message}
-            </div>
+            </m.div>
             <Suspense fallback={null}>
                 <MapDock
                     ref={mapRef}
@@ -293,6 +296,8 @@ export default function App() {
                     state={state}
                     busy={busy}
                     satellite={satellite}
+                    showFooter={showFooter}
+                    onFooterChange={changeFooter}
                     guessStatus={guessStatus}
                     onSatelliteChange={setSatellite}
                     onGuessChange={selectGuess}
@@ -301,44 +306,18 @@ export default function App() {
                     notify={notify}
                 />
             </Suspense>
-            {resultView !== "idle" && state?.solved
-                ? (
-                    <Suspense fallback={null}>
-                        <ResultDialog
-                            state={state}
-                            open={resultView === "open"}
-                            satellite={satellite}
-                            onClose={closeResult}
-                            notify={notify}
-                        />
-                    </Suspense>
-                )
-                : null}
-            <div id="scrim" aria-hidden="true">
-                {Array.from({ length: 6 }, (_, index) => <div key={index} />)}
-            </div>
-            <Button
-                type="button"
-                id="btn-mode"
-                className="absolute top-(--edge-top) right-(--edge-right) z-350"
-                title={panMode ? "Scroll pans, pinch zooms" : "Scroll zooms"}
-                aria-label="Toggle navigation mode"
-                aria-pressed={panMode}
-                onClick={() => navigation.setPanMode(!panMode)}
-            >
-                {panMode ? <Hand aria-hidden="true" /> : <Mouse aria-hidden="true" />}
-            </Button>
-            <footer
-                id="credits"
-                className="pointer-events-none absolute inset-x-0 bottom-0 z-300 flex items-center text-credit text-foreground text-shadow-credit"
-            >
-                <span id="basemap-credit">
-                    {satellite
-                        ? "Imagery © Esri, Maxar, Earthstar Geographics"
-                        : "Basemap © CARTO · © OpenStreetMap contributors (ODbL)"}
-                </span>
-                &nbsp;· MapLibre (BSD-3) · Leaflet (BSD-2) · Pannellum (MIT) · Lucide (ISC)
-            </footer>
+            {resultView !== "idle" && state?.solved ? (
+                <Suspense fallback={null}>
+                    <ResultDialog
+                        navigation={navigation}
+                        state={state}
+                        open={resultView === "open"}
+                        satellite={satellite}
+                        onClose={closeResult}
+                        notify={notify}
+                    />
+                </Suspense>
+            ) : null}
         </div>
     );
 }

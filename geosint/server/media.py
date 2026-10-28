@@ -76,7 +76,10 @@ def _probe_image(path):
 
 
 def _multires_path(value):
-    if not isinstance(value, str) or not re.fullmatch(r"[\w./%-]*", value, re.ASCII):
+    if not isinstance(value, str):
+        raise TypeError("Multires paths must be local paths")
+
+    if not re.fullmatch(r"[\w./%-]*", value, re.ASCII):
         raise ValueError("Multires paths must be local paths")
 
     path = Path(value.strip("/"))
@@ -131,7 +134,7 @@ class Media:
 
             urls = [
                 self._prepare_image(faces[face], face, item)
-                for face, item in zip(CUBE_FACES, face_info)
+                for face, item in zip(CUBE_FACES, face_info, strict=True)
             ]
             self.state = {"kind": "pano", "type": kind, "faces": urls}
         else:
@@ -185,7 +188,7 @@ class Media:
         if not root.is_relative_to(self.root):
             raise ValueError("Multires directory must stay inside media")
 
-        config = json.loads((root / "config.json").read_text())
+        config = json.loads((root / "config.json").read_text(encoding="utf-8"))
 
         if not isinstance(config, dict):
             raise TypeError("Multires config must be an object")
