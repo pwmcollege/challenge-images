@@ -45,7 +45,11 @@ export function useDock({
         setSide(next);
 
         try {
-            localStorage.setItem("map-side", next);
+            if (next === "right") {
+                localStorage.removeItem("map-side");
+            } else {
+                localStorage.setItem("map-side", "left");
+            }
         } catch {
             return;
         }

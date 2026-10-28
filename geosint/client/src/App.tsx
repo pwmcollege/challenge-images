@@ -64,7 +64,11 @@ export default function App() {
         setShowFooter(visible);
 
         try {
-            localStorage.setItem("show-footer", String(visible));
+            if (visible) {
+                localStorage.removeItem("show-footer");
+            } else {
+                localStorage.setItem("show-footer", "false");
+            }
         } catch {
             return;
         }
