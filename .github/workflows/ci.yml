@@ -6,23 +6,45 @@ on:
       - main
   workflow_dispatch:
     inputs:
-      image:
-        type: choice
-        description: Image to build and push
-        options:
-          - capabilities
-          - cve-2021-3156
-          - cve-2023-22809
-          - cve-2025-32463
-          - cve-2025-59825
-          - cve-2025-66478
-          - cve-2026-24061
-          - cve-2026-31431
-          - geosint
-          - lecture
-          - sudo
-          - suid
-          - web
+      capabilities:
+        type: boolean
+        default: false
+      cve-2021-3156:
+        type: boolean
+        default: false
+      cve-2023-22809:
+        type: boolean
+        default: false
+      cve-2025-32463:
+        type: boolean
+        default: false
+      cve-2025-59825:
+        type: boolean
+        default: false
+      cve-2025-66478:
+        type: boolean
+        default: false
+      cve-2026-24061:
+        type: boolean
+        default: false
+      cve-2026-31431:
+        type: boolean
+        default: false
+      geosint:
+        type: boolean
+        default: false
+      lecture:
+        type: boolean
+        default: false
+      sudo:
+        type: boolean
+        default: false
+      suid:
+        type: boolean
+        default: false
+      web:
+        type: boolean
+        default: false
 
 jobs:
   publish:
@@ -60,16 +82,16 @@ jobs:
         env:
           BEFORE_SHA: ${{ github.event.before }}
           EVENT_NAME: ${{ github.event_name }}
-          MANUAL_IMAGE: ${{ inputs.image }}
+          MANUAL_IMAGE_SELECTED: ${{ inputs[matrix.image] }}
         run: |
           set -euo pipefail
           if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
-            if [ "$MANUAL_IMAGE" == "${{ matrix.image }}" ]; then
+            if [ "$MANUAL_IMAGE_SELECTED" == "true" ]; then
               echo "update=true" >> "$GITHUB_OUTPUT"
               echo "Manually triggered build and push for ${{ matrix.image }}."
             else
               echo "update=false" >> "$GITHUB_OUTPUT"
-              echo "Manual trigger selected $MANUAL_IMAGE, skipping ${{ matrix.image }}."
+              echo "Manual trigger did not select ${{ matrix.image }}, skipping it."
             fi
           else
             if [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
@@ -138,3 +160,4 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: pwmcollege/challenge-${{ matrix.image }}:latest
+          allow: security.insecure

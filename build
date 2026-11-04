@@ -4,7 +4,7 @@ set -euo pipefail
 
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 
-KVM_IMAGES=(windows)
+KVM_IMAGES=(windows sudo)
 KVM_BUILDER="${KVM_BUILDER:-kvm}"
 
 if [[ $# -eq 0 || $1 == -* ]]; then

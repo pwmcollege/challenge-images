@@ -1,4 +1,23 @@
-FROM ubuntu:20.04 AS dev-kernel
+FROM ubuntu:22.04 AS iftop-build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    curl \
+    libncurses-dev \
+    libpcap0.8-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /tmp/iftop /install && \
+    curl -fsSL https://pdw.ex-parrot.com/iftop/download/iftop-1.0pre4.tar.gz | tar -xz -C /tmp/iftop --strip-components=1 && \
+    cd /tmp/iftop && \
+    CFLAGS="-O2 -fcommon -DALLOW_SUBSHELL" ./configure --prefix=/usr && \
+    make -j"$(nproc)" && \
+    make DESTDIR=/install install && \
+    test -x /install/usr/sbin/iftop && \
+    rm -rf /tmp/iftop
+
+FROM ubuntu:22.04 AS dev-kernel
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -8,6 +27,7 @@ RUN apt-get update && \
     gnupg \
     iproute2 \
     initramfs-tools \
+    libpam-systemd \
     kmod \
     linux-image-generic \
     openssh-server \
@@ -69,16 +89,12 @@ EOF
 COPY --chmod=755 <<'EOF' /usr/local/bin/vm-boot
 #!/bin/sh
 
-if [ -e /dev/kvm ]; then
-    KVM_OPT="-enable-kvm"
-else
-    KVM_OPT=""
-fi
-
 KERNEL_PATH="/boot/vmlinuz"
 INITRD_PATH="/boot/initrd.img"
 
 exec /usr/bin/qemu-system-x86_64 \
+    -accel kvm \
+    -accel tcg \
     -kernel "$KERNEL_PATH" \
     -initrd "$INITRD_PATH" \
     -fsdev local,id=rootfs,path=/,security_model=passthrough,multidevs=remap \
@@ -88,11 +104,10 @@ exec /usr/bin/qemu-system-x86_64 \
     -device e1000,netdev=net0 \
     -netdev user,id=net0,hostfwd=tcp::23-:22 \
     -m 2G \
-    -smp 2 \
+    -smp "$(nproc)" \
     -nographic \
     -monitor none \
-    -append "root=rootfs rw rootfstype=9p rootflags=trans=virtio,msize=512000 console=ttyS0 init=/lib/systemd/systemd systemd.unit=multi-user.target" \
-    $KVM_OPT
+    -append "root=rootfs rw rootfstype=9p rootflags=trans=virtio,msize=512000 console=ttyS0 init=/lib/systemd/systemd systemd.unit=multi-user.target"
 EOF
 
 RUN mkdir -p /etc/systemd/network /etc/systemd/system/multi-user.target.wants /run/systemd/resolve/
@@ -198,13 +213,6 @@ RUN <<EOF
 
     curl -fsSL https://deb.nodesource.com/setup_${NODE_VER}.x | bash -
 
-    curl -fsSLO https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb
-    dpkg -i packages-microsoft-prod.deb
-    rm packages-microsoft-prod.deb
-
-    echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
-    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
-
     apt-get clean
     rm -rf /var/lib/apt/lists/*
 EOF
@@ -212,33 +220,41 @@ EOF
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     acl \
+    acr \
     alpine \
     alsa-oss \
-    ansible \
     apache2 \
     apache2-utils \
     apparmor \
+    aptitude \
     aria2 \
     arj \
     ash \
     aspell \
     aspell-en \
+    asterisk \
     at \
+    autoconf \
+    automake \
     bacula-console \
     base58 \
     basez \
     bash \
     bat \
     binutils \
+    borgbackup \
     bpftrace \
     bsd-mailx \
     bsdmainutils \
     busybox \
     bzip2 \
     cabal-install \
+    cargo \
     cdist \
     certbot \
     clamav \
+    clisp \
+    cmake \
     composer \
     coreutils \
     cowsay \
@@ -260,10 +276,15 @@ RUN apt-get update && \
     dmidecode \
     dmsetup \
     dnsutils \
+    dnsmasq-base \
     docker.io \
+    doas \
+    dos2unix \
     dosbox \
-    dotnet-sdk-8.0 \
+    dstat \
+    dnf \
     e2fsprogs \
+    easy-rsa \
     eb-utils \
     ed \
     efax \
@@ -272,11 +293,16 @@ RUN apt-get update && \
     enscript \
     espeak \
     expect \
-    facter \
+    fail2ban \
+    ffmpeg \
     file \
     findutils \
+    finger \
+    firejail \
     fish \
     fping \
+    fzf \
+    g++ \
     gawk \
     gcc \
     gdb \
@@ -287,11 +313,14 @@ RUN apt-get update && \
     ginac-tools \
     git \
     gnucobol \
-    google-cloud-cli \
+    gnuplot-nox \
+    golang-1.20-go \
     grc \
     grep \
     groff-base \
+    guile-3.0 \
     gzip \
+    hashcat \
     hping3 \
     highlight \
     iamerican \
@@ -299,6 +328,7 @@ RUN apt-get update && \
     inetutils-ftp \
     inetutils-telnetd \
     iproute2 \
+    isc-dhcp-client \
     ispell \
     joe \
     jq \
@@ -323,29 +353,38 @@ RUN apt-get update && \
     ltrace \
     lua5.3 \
     mime-support \
+    m4 \
     make \
     man-db \
     mariadb-client \
     mawk \
+    mercurial \
     minicom \
     monitoring-plugins \
     monitoring-plugins-basic \
     nagios-plugins-contrib \
     monitoring-plugins-standard \
+    mosh \
     mosquitto \
     mtr-tiny \
     multitime \
+    mutt \
+    mypy \
     nano \
     nasm \
     ncdu \
     ncftp \
     ncurses-bin \
+    needrestart \
     neofetch \
+    neovim \
     net-tools \
     netcat-openbsd \
     nftables \
+    nginx-full \
     nmap \
     nodejs \
+    node-typescript \
     ntpsec-ntpdate \
     octave \
     openjdk-11-jdk-headless \
@@ -358,32 +397,49 @@ RUN apt-get update && \
     p7zip-full \
     pandoc \
     passwd \
+    pax \
     perl \
     pexec \
     php-cli \
+    pipx \
+    plymouth \
+    pocl-opencl-icd \
+    podman \
     policykit-1 \
     posh \
     postgresql-client \
+    procmail \
     procps \
     pry \
-    puppet \
     putty-tools \
     python-is-python3 \
     python-setuptools \
     python2 \
     python3-pip \
+    python3-pygments \
+    python3-poetry \
     python3-setuptools \
+    qpdf \
+    r-base-core \
     rake \
+    ranger \
     rc \
+    redis-server \
+    redis-tools \
     restic \
     rlwrap \
     rpm \
+    rsh-client \
     rsync \
+    rsyslog \
+    rtorrent \
     ruby \
     ruby-ascii85 \
     ruby-bundler \
     ruby-byebug \
     ruby-redcarpet \
+    rustc \
+    rustfmt \
     samba-client \
     sash \
     scanmem \
@@ -394,10 +450,13 @@ RUN apt-get update && \
     slsh \
     snapd \
     socat \
+    socket \
     sqlite3 \
     sqlmap \
     squashfs-tools \
+    sshfs \
     sshpass \
+    sshuttle \
     strace \
     sudo \
     sysstat \
@@ -406,6 +465,7 @@ RUN apt-get update && \
     taskwarrior \
     tcl \
     tcpdump \
+    tcsh \
     tdb-tools \
     telnet \
     texlive-binaries \
@@ -418,6 +478,7 @@ RUN apt-get update && \
     tmate \
     tmux \
     torsocks \
+    tshark \
     unzip \
     urjtag \
     util-linux \
@@ -427,6 +488,8 @@ RUN apt-get update && \
     w3m \
     wget \
     whiptail \
+    whois \
+    wireguard-tools \
     wireshark \
     x11-apps \
     x11-xserver-utils \
@@ -435,96 +498,75 @@ RUN apt-get update && \
     xpad \
     xxd \
     xz-utils \
+    yt-dlp \
     yash \
+    yelp \
     zathura \
     zip \
     zsh \
     zypper && \
     for zsoelim in /usr/libexec/man-db/zsoelim /usr/lib/man-db/zsoelim; do \
-        if [ -x "$zsoelim" ]; then ln -sf "$zsoelim" /usr/bin/zsoelim; break; fi; \
+    if [ -x "$zsoelim" ]; then ln -sf "$zsoelim" /usr/bin/zsoelim; break; fi; \
     done && \
     if [ -x /usr/sbin/tcpdump ]; then ln -sf /usr/sbin/tcpdump /usr/bin/tcpdump; fi && \
     ln -sf /usr/bin/torsocks /usr/bin/torify && \
     ln -sf /usr/bin/pdb3 /usr/bin/pdb && \
+    ln -sf /usr/lib/go-1.20/bin/go /usr/bin/go && \
     ln -sf /usr/bin/resolvectl /usr/bin/systemd-resolve && \
     rm -f /usr/sbin/policy-rc.d && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --chmod=755 <<'EOF' /usr/bin/basenc
-#!/bin/bash
+RUN npm install --global --ignore-scripts yarn@1.22.22
+
+COPY --from=iftop-build --chmod=0755 /install/usr/sbin/iftop /usr/sbin/iftop
+
+RUN <<EOF
 set -euo pipefail
+root=/tmp/rpmbuild
+mkdir -p "$root"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
+cat >"$root/SPECS/debian-shell-provider.spec" <<'SPEC'
+Name: debian-shell-provider
+Version: 1.0
+Release: 1
+Summary: Register Debian shell interpreter for local RPM scriptlets
+License: Public Domain
+BuildArch: noarch
+Provides: /bin/sh
 
-decode=0
-files=()
-for argument in "$@"; do
-    case "$argument" in
-        --base64) ;;
-        -d|--decode) decode=1 ;;
-        *) files+=("$argument") ;;
-    esac
-done
+%description
+Register Debian shell path in RPM metadata for local RPM scriptlet dependency resolution.
 
-if [ "$decode" -eq 1 ]; then
-    exec /usr/bin/base64 --decode "${files[@]}"
-fi
-exec /usr/bin/base64 "${files[@]}"
-EOF
+%prep
 
-COPY --chmod=755 <<'EOF' /usr/bin/dnf
-#!/bin/bash
-set -euo pipefail
+%build
 
-if [ "${1:-}" != install ]; then
-    exec /usr/bin/rpm "$@"
-fi
-shift
+%install
+mkdir -p %{buildroot}
 
-packages=()
-for argument in "$@"; do
-    case "$argument" in
-        -y|--assumeyes|--disablerepo=*|--setopt=*) ;;
-        *.rpm) packages+=("$argument") ;;
-        *)
-            echo "dnf compatibility mode only supports local RPM installs" >&2
-            exit 2
-            ;;
-    esac
-done
-
-[ "${#packages[@]}" -gt 0 ] || {
-    echo "dnf: no RPM package specified" >&2
-    exit 2
-}
-exec /usr/bin/rpm -Uvh --nodeps "${packages[@]}"
+%files
+SPEC
+    rpmbuild --define "_topdir $root" -bb "$root/SPECS/debian-shell-provider.spec"
+    rpm --justdb --noscripts --nodeps -Uvh "$root/RPMS/noarch/debian-shell-provider-1.0-1.noarch.rpm"
+    rpm -q --provides debian-shell-provider | grep -Fx /bin/sh
+    rm -rf "$root"
 EOF
 
 COPY --chmod=755 install-snaps.sh /usr/local/bin/install-snaps.sh
-RUN /usr/local/bin/install-snaps.sh && rm /usr/local/bin/install-snaps.sh
+RUN --security=insecure /usr/local/bin/install-snaps.sh && rm /usr/local/bin/install-snaps.sh
 
 COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
 
-ENV PATH="/usr/lib/nagios/plugins:/usr/games:${PATH}"
+ENV PATH="/usr/share/easy-rsa:/usr/lib/nagios/plugins:/usr/games:${PATH}"
 
 RUN <<EOF
     cd /tmp
-    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-    unzip awscliv2.zip
-    ./aws/install
-
     curl -sS https://bootstrap.pypa.io/pip/2.7/get-pip.py -o get-pip.py
     python2 get-pip.py
     easyi=/usr/lib/python2.7/dist-packages/easy_install.py
     sed -i '1i #!/usr/bin/python2' "${easyi}"
     chmod +x "${easyi}"
     ln -sf "$easyi" /usr/bin/easy_install
-
-    CHEF_VERSION=$(curl -fsSL https://raw.githubusercontent.com/chef/chef-workstation/main/Dockerfile | sed -n 's/^ARG VERSION=\(.*\)/\1/p')
-    curl -fSL "https://packages.chef.io/files/stable/chef-workstation/${CHEF_VERSION}/ubuntu/20.04/chef-workstation_${CHEF_VERSION}-1_amd64.deb" -o chef.deb
-    dpkg -i chef.deb
-
-    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 
     cd /opt
     curl -fSL "https://julialang-s3.julialang.org/bin/linux/x64/1.12/julia-1.12.7-linux-x86_64.tar.gz" | tar -xzf -
@@ -538,19 +580,7 @@ RUN <<EOF
     ln -s /lib64/ld-linux-x86-64.so.2 /usr/bin/ld.so
 
     pip3 install 'pykickstart==3.64'
-    ANSIBLE_SKIP_CONFLICT_CHECK=1 pip3 install --no-cache-dir --target /opt/ansible-test 'ansible-core==2.12.10'
-    mkdir -p /opt/ansible-test/project/ansible_collections/pwncollege/sudo
-
     gem install fpm
-
-    npm i -g @openai/codex
-EOF
-
-COPY --chmod=755 <<'EOF' /usr/bin/ansible-test
-#!/bin/bash
-set -euo pipefail
-cd /opt/ansible-test/project/ansible_collections/pwncollege/sudo
-exec env PYTHONPATH=/opt/ansible-test /opt/ansible-test/bin/ansible-test "$@"
 EOF
 
 COPY --chown=0:0 --from=pwmcollege/glow /usr/local/bin/glow /usr/local/bin/glow
