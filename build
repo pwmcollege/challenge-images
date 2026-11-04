@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+
+KVM_IMAGES=(windows)
+KVM_BUILDER="${KVM_BUILDER:-kvm}"
+
+if [[ $# -eq 0 || $1 == -* ]]; then
+    echo "Usage: $0 IMAGE...|all [docker build options]" >&2
+    if [[ ${1:-} == -h || ${1:-} == --help ]]; then
+        exit 0
+    fi
+    exit 2
+fi
+
+images=()
+while [[ $# -gt 0 && $1 != -* ]]; do
+    if [[ $1 == all ]]; then
+        for dockerfile in */Dockerfile; do
+            images+=("${dockerfile%/Dockerfile}")
+        done
+    else
+        images+=("$1")
+    fi
+    shift
+done
+
+for image in "${images[@]}"; do
+    if [[ $image == */* || ! -f "$image/Dockerfile" ]]; then
+        echo "Unknown image: $image" >&2
+        exit 2
+    fi
+done
+
+builder_used=0
+builder_created=0
+bashrc=
+
+cleanup() {
+    local status=$?
+    local cleanup_status=0
+    set +e
+    [[ -z $bashrc ]] || rm -f "$bashrc" || cleanup_status=$?
+    if (( builder_used )); then
+        if (( builder_created )); then
+            docker buildx rm --keep-state "$KVM_BUILDER" || cleanup_status=$?
+        else
+            docker buildx stop "$KVM_BUILDER" || cleanup_status=$?
+        fi
+    fi
+    if (( status == 0 )); then
+        status=$cleanup_status
+    fi
+    exit "$status"
+}
+
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+for image in "${images[@]}"; do
+    if [[ " ${KVM_IMAGES[*]} " == *" $image "* ]]; then
+        if ! docker buildx inspect "$KVM_BUILDER" >/dev/null 2>&1; then
+            docker buildx create --name "$KVM_BUILDER" --driver docker-container \
+                --driver-opt default-load=true \
+                --buildkitd-flags '--allow-insecure-entitlement security.insecure --oci-worker-gc --oci-worker-gc-keepstorage=500000,20000,500000'
+            builder_created=1
+        fi
+        builder_used=1
+        export BUILDX_BUILDER="$KVM_BUILDER"
+        break
+    fi
+done
+
+for image in "${images[@]}"; do
+    bashrc="$image/bash.bashrc"
+    rm -f "$bashrc"
+    cp bash.bashrc "$image/"
+    if [[ " ${KVM_IMAGES[*]} " == *" $image "* ]]; then
+        docker build --builder "$KVM_BUILDER" --allow security.insecure "$@" "$image"
+    else
+        docker build "$@" "$image"
+    fi
+    rm -f "$bashrc"
+    bashrc=
+done

@@ -1,1 +1,2 @@
 * text=auto eol=lf
+/windows/** filter=git-crypt-windows diff=git-crypt-windows -text
