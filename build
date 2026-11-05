@@ -19,7 +19,8 @@ images=()
 while [[ $# -gt 0 && $1 != -* ]]; do
     if [[ $1 == all ]]; then
         for dockerfile in */Dockerfile; do
-            images+=("${dockerfile%/Dockerfile}")
+            image=${dockerfile%/Dockerfile}
+            [[ $image == cve-* ]] || images+=("$image")
         done
     else
         images+=("$1")
@@ -28,6 +29,10 @@ while [[ $# -gt 0 && $1 != -* ]]; do
 done
 
 for image in "${images[@]}"; do
+    if [[ $image == cve-* ]]; then
+        echo "CVE images are excluded from this build script: $image" >&2
+        exit 2
+    fi
     if [[ $image == */* || ! -f "$image/Dockerfile" ]]; then
         echo "Unknown image: $image" >&2
         exit 2
