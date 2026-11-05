@@ -10,7 +10,7 @@ if [ "${HOSTNAME:0:2}" != "vm" ] && [ ! -e "/tmp/.dojo/readme-once" ]; then
     else
         README=""
     fi
-    
+
     if [ -n "$README" ]; then
         if command -v glow > /dev/null 2>&1; then
             glow -p "$README"
@@ -19,7 +19,7 @@ if [ "${HOSTNAME:0:2}" != "vm" ] && [ ! -e "/tmp/.dojo/readme-once" ]; then
         else
             cat "$README"
         fi
-        
+
         touch /tmp/.dojo/readme-once
     fi
 fi

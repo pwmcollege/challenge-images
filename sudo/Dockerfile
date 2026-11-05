@@ -155,13 +155,31 @@ ExecStart=/bin/mount -t 9p -o trans=virtio,version=9p2000.L,nosuid homefs /home/
 WantedBy=multi-user.target
 EOF
 
+COPY <<'EOF' /etc/systemd/system/challenge-initvm.service
+[Unit]
+Description=Challenge VM initialization hook
+ConditionPathExists=/challenge/.initvm
+After=local-fs.target mount-homefs.service systemd-networkd.service ssh.service
+Before=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -ec '. /challenge/.initvm'
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 RUN echo vm > /etc/hostname && \
     ln -sf /etc/resolv.conf /run/systemd/resolve/resolv.conf && \
     ln -sf /etc/systemd/system/set-vm-hostname.service /etc/systemd/system/multi-user.target.wants/set-vm-hostname.service && \
     ln -sf /etc/systemd/system/mount-homefs.service /etc/systemd/system/multi-user.target.wants/mount-homefs.service && \
     ln -sf /lib/systemd/system/systemd-networkd.service /etc/systemd/system/multi-user.target.wants/systemd-networkd.service && \
     ln -sf /lib/systemd/system/systemd-resolved.service /etc/systemd/system/multi-user.target.wants/systemd-resolved.service && \
-    ln -sf /lib/systemd/system/ssh.service /etc/systemd/system/multi-user.target.wants/ssh.service
+    ln -sf /lib/systemd/system/ssh.service /etc/systemd/system/multi-user.target.wants/ssh.service && \
+    ln -sf /etc/systemd/system/challenge-initvm.service /etc/systemd/system/multi-user.target.wants/challenge-initvm.service
 
 COPY --chmod=4755 <<'EOF' /usr/local/bin/vm-stop
 #!/usr/bin/exec-suid --real -- /bin/sh
@@ -223,6 +241,7 @@ RUN apt-get update && \
     acr \
     alpine \
     alsa-oss \
+    ansible \
     apache2 \
     apache2-utils \
     apparmor \
@@ -281,6 +300,7 @@ RUN apt-get update && \
     doas \
     dos2unix \
     dosbox \
+    dotnet-sdk-6.0 \
     dstat \
     dnf \
     e2fsprogs \
@@ -293,6 +313,7 @@ RUN apt-get update && \
     enscript \
     espeak \
     expect \
+    facter \
     fail2ban \
     ffmpeg \
     file \
@@ -411,6 +432,7 @@ RUN apt-get update && \
     procmail \
     procps \
     pry \
+    puppet \
     putty-tools \
     python-is-python3 \
     python-setuptools \
@@ -535,7 +557,6 @@ BuildArch: noarch
 Provides: /bin/sh
 
 %description
-Register Debian shell path in RPM metadata for local RPM scriptlet dependency resolution.
 
 %prep
 
