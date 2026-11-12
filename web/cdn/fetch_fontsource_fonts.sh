@@ -13,6 +13,7 @@ trap cleanup EXIT HUP INT TERM
 install_font() {
     name="$1"
     family="$2"
+    axis="${3:-standard}"
     archive="$WORK_DIR/$name.tgz"
     package_dir="$WORK_DIR/$name"
     font_dir="$CDN_ROOT/fonts/$name"
@@ -24,13 +25,13 @@ install_font() {
         "$tarball_url" --output "$archive"
 
     tar -xzf "$archive" -C "$package_dir" --strip-components=1 \
-        package/LICENSE package/standard.css package/standard-italic.css
+        package/LICENSE "package/$axis.css" "package/$axis-italic.css"
     tar -xzf "$archive" -C "$font_dir/files" --strip-components=2 --wildcards \
-        "package/files/$name-*-standard-*.woff2"
+        "package/files/$name-*-$axis-*.woff2"
     install -m 644 "$package_dir/LICENSE" "$font_dir/LICENSE"
 
     : > "$CDN_ROOT/fonts/$name.css"
-    for stylesheet in standard.css standard-italic.css; do
+    for stylesheet in "$axis.css" "$axis-italic.css"; do
         sed \
             -e "s/'$family Variable'/'$family'/g" \
             -e "s|url(./files/|url(/fonts/$name/files/|g" \
@@ -41,3 +42,4 @@ install_font() {
 
 install_font inter Inter
 install_font dm-sans 'DM Sans'
+install_font geist Geist wght

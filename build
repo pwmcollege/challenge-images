@@ -4,7 +4,7 @@ set -euo pipefail
 
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 
-KVM_IMAGES=(windows sudo)
+KVM_IMAGES=(sudo windows)
 KVM_BUILDER="${KVM_BUILDER:-kvm}"
 
 if [[ $# -eq 0 || $1 == -* ]]; then
@@ -19,8 +19,7 @@ images=()
 while [[ $# -gt 0 && $1 != -* ]]; do
     if [[ $1 == all ]]; then
         for dockerfile in */Dockerfile; do
-            image=${dockerfile%/Dockerfile}
-            [[ $image == cve-* ]] || images+=("$image")
+            images+=("${dockerfile%/Dockerfile}")
         done
     else
         images+=("$1")
@@ -29,10 +28,6 @@ while [[ $# -gt 0 && $1 != -* ]]; do
 done
 
 for image in "${images[@]}"; do
-    if [[ $image == cve-* ]]; then
-        echo "CVE images are excluded from this build script: $image" >&2
-        exit 2
-    fi
     if [[ $image == */* || ! -f "$image/Dockerfile" ]]; then
         echo "Unknown image: $image" >&2
         exit 2
