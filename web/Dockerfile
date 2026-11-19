@@ -170,6 +170,8 @@ ADD --chown=0:0 --chmod=0644 https://raw.githubusercontent.com/open-dict-data/ip
 ADD --chown=0:0 --chmod=0644 https://raw.githubusercontent.com/open-dict-data/ipa-dict/master/LICENSE /usr/share/doc/ipa-dict/copyright
 ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4/dist/index.global.min.js /opt/cdn/tailwind/tailwind.min.js
 ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/lucide@1/dist/umd/lucide.min.js /opt/cdn/lucide/lucide.min.js
+ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/motion@14.14.0/dist/motion.js /opt/cdn/motion/motion.min.js
+ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/motion@14.14.0/LICENSE.md /opt/cdn/motion/LICENSE.md
 ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/xterm@latest/css/xterm.min.css /opt/cdn/xterm/xterm.css
 ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/xterm@latest/lib/xterm.min.js /opt/cdn/xterm/xterm.js
 ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/xterm-addon-fit@latest/lib/xterm-addon-fit.min.js /opt/cdn/xterm/xterm-addon-fit.js
