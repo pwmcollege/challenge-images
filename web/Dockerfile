@@ -1,7 +1,7 @@
 FROM ubuntu:26.04
 
 ARG CHROME_CHANNEL=stable
-ARG GECKODRIVER_VER=0.36.0
+ARG GECKODRIVER_VER=0.37.1
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -123,6 +123,7 @@ RUN apt-get update && \
     vim \
     wget \
     whois \
+    wordnet-base \
     zip \
     zsh \
     zstd \
@@ -165,6 +166,8 @@ ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
 
 COPY --chown=0:0 --chmod=554 ./cdn/server /opt/cdn/server
 
+ADD --chown=0:0 --chmod=0644 https://raw.githubusercontent.com/open-dict-data/ipa-dict/master/data/en_US.txt /usr/share/dictionary/en_US.txt
+ADD --chown=0:0 --chmod=0644 https://raw.githubusercontent.com/open-dict-data/ipa-dict/master/LICENSE /usr/share/doc/ipa-dict/copyright
 ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4/dist/index.global.min.js /opt/cdn/tailwind/tailwind.min.js
 ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/lucide@1/dist/umd/lucide.min.js /opt/cdn/lucide/lucide.min.js
 ADD --chown=0:0 --chmod=444 https://cdn.jsdelivr.net/npm/xterm@latest/css/xterm.min.css /opt/cdn/xterm/xterm.css
@@ -182,9 +185,10 @@ COPY bash.bashrc /opt/bash/bash.bashrc
 RUN printf '\n[ "$UID" -eq 1000 ] && . /opt/bash/bash.bashrc\n' >> /etc/bash.bashrc && \
     ln -s /etc/bash.bashrc /etc/bashrc && \
     if id ubuntu; then userdel -f -r ubuntu; fi && \
-    chown -R 0:0 /usr/bin /usr/local/bin && \
+    chown -R 0:0 /usr/bin /usr/local/bin /usr/share/wordnet && \
     find / -xdev -type f -perm -4000 -exec chmod u-s {} \; && \
-    find /opt/cdn -type d -exec chmod 755 {} \; && \
+    find /opt/cdn /usr/share/wordnet /usr/share/dictionary /usr/share/doc/ipa-dict -type d -exec chmod 755 {} \; && \
+    find /usr/share/wordnet -type f -exec chmod 644 {} \; && \
     ln -s /usr/bin/python3 /usr/bin/python && \
     ln -s /usr/bin/python /usr/local/bin/python && \
     ln -s /usr/bin/python3 /usr/local/bin/python3 && \
