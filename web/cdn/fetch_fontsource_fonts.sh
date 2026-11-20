@@ -34,7 +34,7 @@ install_font() {
     for stylesheet in "$axis.css" "$axis-italic.css"; do
         sed \
             -e "s/'$family Variable'/'$family'/g" \
-            -e "s|url(./files/|url(/fonts/$name/files/|g" \
+            -e "s|url(\./files/|url(./$name/files/|g" \
             "$package_dir/$stylesheet" >> "$CDN_ROOT/fonts/$name.css"
         printf '\n' >> "$CDN_ROOT/fonts/$name.css"
     done
